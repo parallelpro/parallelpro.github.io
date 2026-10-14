@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stretched échelle diagrams · Yaguang Li @astro</title>
+  <meta name="description" content="Interactive frequency, stretched period and stretched frequency échelle diagrams for mixed-mode stars. Use the examples or load your own power spectrum and mode frequencies; files stay in your browser.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600&family=Source+Sans+3:wght@400;600&display=swap">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../../favicon.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Yaguang Li @astro">
+  <meta property="og:title" content="Stretched échelle diagrams · Yaguang Li @astro">
+  <meta property="og:description" content="Interactive frequency, stretched period and stretched frequency échelle diagrams for mixed-mode stars.">
+  <meta property="og:url" content="https://www.yaguangli.page/resources/echelle/">
+  <meta property="og:image" content="https://www.yaguangli.page/img/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <style>
+    /* mode-degree colours: categorical slots 1-3 (validated all-pairs); l = 3 is neutral ink + diamond shape */
+    .ech { --l0: #2a78d6; --l1: #eb6834; --l2: #1baf7a; --l3: var(--fg); }
+    @media (prefers-color-scheme: dark) { .ech { --l0: #3987e5; --l1: #d95926; --l2: #199e70; } }
+    .wrap-wide { max-width: 1200px; }
+    .ech-head { max-width: 760px; padding-top: 2.4rem; }
+    .ech-head h1 { margin: 0 0 0.6rem; font-size: clamp(1.8rem, 4vw, 2.3rem); }
+    .ech-head p { margin: 0 0 0.7rem; }
+    .ech-hint { color: var(--muted); font-size: 0.95rem; }
+
+    .ech-btn {
+      font: inherit; font-size: 0.9rem; font-weight: 600; color: var(--accent); line-height: 1.5;
+      background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+      padding: 3px 13px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .ech-btn:hover { border-color: var(--accent); }
+    .ech-btn:focus-visible, .ech input:focus-visible, .ech select:focus-visible, .ech-btn:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .ech-link { font: inherit; font-size: 0.88rem; color: var(--accent); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+    .ech-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 1rem; }
+    .ech-toolbar select {
+      font: inherit; font-size: 0.92rem; color: var(--fg); background: var(--card);
+      border: 1px solid var(--border); border-radius: 8px; padding: 3px 8px;
+    }
+    .ech-toolbar label.plain { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 0.92rem; }
+    .ech-status { margin: 0.6rem 0 0; font-size: 0.9rem; color: var(--muted); }
+    .ech-status strong { color: var(--fg); font-weight: 600; }
+    .ech-error { color: #c0392b; }
+    @media (prefers-color-scheme: dark) { .ech-error { color: #ff8a80; } }
+
+    #paste-box { margin-top: 0.6rem; }
+    #paste-box textarea {
+      width: 100%; max-width: 560px; min-height: 120px; font: 0.9rem/1.4 ui-monospace, Menlo, Consolas, monospace;
+      color: var(--fg); background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 8px; display: block; margin: 6px 0;
+    }
+
+    .ech-legend { display: flex; flex-wrap: wrap; gap: 2px 18px; margin: 0.9rem 0 0; padding: 0; list-style: none; font-size: 0.88rem; color: var(--muted); }
+    .ech-legend li { margin: 0; display: flex; align-items: center; gap: 6px; }
+
+    .ech-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 10px; }
+    @media (max-width: 900px) { .ech-grid { grid-template-columns: 1fr; } }
+    .ech-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px 8px; min-width: 0; }
+    .ech-panel h2 { margin: 0 0 2px; font-size: 1.08rem; }
+    .ech-panel .sub { margin: 0 0 4px; font-size: 0.84rem; color: var(--muted); }
+    /* panels plus the parameter row fit one laptop screen once scrolled to the panels */
+    .ech-panel canvas { display: block; width: 100%; height: clamp(260px, calc(100vh - 450px), 460px); touch-action: pan-y; }
+    @media (max-width: 900px) { .ech-panel canvas { height: 380px; } }
+    .ech-spec canvas { height: 170px; }
+
+    .ech-params { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+    @media (max-width: 900px) { .ech-params { grid-template-columns: 1fr; } }
+    .ech-group { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px 6px; }
+    .ech-group h3 { margin: 0 0 4px; font-family: var(--sans); font-size: 0.84rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .prm { display: grid; grid-template-columns: 4.6rem 1fr 6.2rem; align-items: center; gap: 8px; margin: 4px 0; }
+    .prm label { font-size: 0.95rem; white-space: nowrap; }
+    .prm label .unit { color: var(--muted); font-size: 0.8rem; }
+    .prm input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; }
+    .prm input[type=number] {
+      width: 100%; font: inherit; font-size: 0.9rem; font-variant-numeric: tabular-nums; color: var(--fg);
+      background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px;
+    }
+    .ech-toggles { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 8px 0 4px; font-size: 0.92rem; }
+    .ech-toggles label { display: inline-flex; align-items: center; gap: 5px; }
+    .ech-toggles input { accent-color: var(--accent); }
+    details.ech-adv { margin: 4px 0; }
+    details.ech-adv summary { cursor: pointer; font-size: 0.9rem; color: var(--accent); font-weight: 600; }
+
+    .ech-spec { margin-top: 14px; }
+    #ech-tip {
+      position: fixed; z-index: 20; pointer-events: none;
+      background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.12); padding: 6px 10px; font-size: 0.86rem; line-height: 1.45; font-variant-numeric: tabular-nums;
+    }
+    #ech-tip strong { color: var(--fg); }
+    #ech-tip span { color: var(--muted); }
+
+    details#ech-table { margin-top: 1.4rem; }
+    details#ech-table summary, .ech-notes summary { cursor: pointer; font-weight: 600; color: var(--accent); }
+    .ech-table-wrap { max-height: 420px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; margin-top: 0.6rem; background: var(--card); max-width: 760px; }
+    .ech-table-wrap table { border-collapse: collapse; width: 100%; font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+    .ech-table-wrap th, .ech-table-wrap td { text-align: right; padding: 4px 14px; border-top: 1px solid var(--border); }
+    .ech-table-wrap th { position: sticky; top: 0; background: var(--card); color: var(--muted); font-weight: 600; }
+    .ech-notes { max-width: 760px; margin-top: 2rem; }
+    .ech-notes h2 { font-size: 1.35rem; margin: 0 0 0.6rem; }
+    .ech-notes dt { font-weight: 600; margin-top: 0.8rem; }
+    .ech-notes dd { margin: 0.15rem 0 0; }
+    .eq { font-family: var(--serif); font-size: 1.02rem; margin: 0.4rem 0 0.4rem 1rem; }
+    .ech-notes code { font-size: 0.88em; background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
+    .ech-credit { color: var(--muted); font-size: 0.9rem; max-width: 760px; margin-top: 1.6rem; }
+  </style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../../">Yaguang Li</a>
+    <nav class="nav">
+      <a href="../../">Home</a>
+      <a href="../../#research">Research</a>
+      <a href="../../#talks">Talks</a>
+      <a href="../../#code">Code</a>
+      <a href="../" aria-current="page">Resources</a>
+      <a href="../../files/Yaguang_Li_CV.pdf">CV</a>
+    </nav>
+  </div>
+</header>
+
+<main class="ech">
+  <div class="wrap ech-head">
+    <h1>Stretched échelle diagrams</h1>
+    <p>Fold a power spectrum, a list of mode frequencies, or both into three échelle diagrams at once: the usual
+      frequency échelle, the stretched period échelle that lines up dipole mixed modes by their g-mode period
+      spacing, and the stretched frequency échelle that recovers the pure p modes. Tune the asymptotic parameters and
+      watch the ridges straighten.</p>
+    <p class="ech-hint">Start with an example star, or load your own files. Files are read in your browser and never
+      uploaded.</p>
+  </div>
+
+  <div class="wrap wrap-wide">
+    <div class="ech-toolbar">
+      <label class="plain">Example
+        <select id="ex-select">
+          <option value="KIC10272858">KIC 10272858 · red giant</option>
+          <option value="KIC10972873">KIC 10972873 · subgiant</option>
+          <option value="__user">Your data</option>
+        </select>
+      </label>
+      <label class="ech-btn">Load power spectrum…<input type="file" id="file-spec" accept=".csv,.txt,.dat,.tsv,.asc,.psd" hidden></label>
+      <label class="ech-btn">Load mode frequencies…<input type="file" id="file-modes" accept=".csv,.txt,.dat,.tsv" hidden></label>
+      <button type="button" class="ech-btn" id="btn-paste" aria-expanded="false" aria-controls="paste-box">Paste frequencies</button>
+      <button type="button" class="ech-btn" id="btn-copy">Copy parameters</button>
+    </div>
+    <div id="paste-box" hidden>
+      <label for="paste-text" class="ech-hint">One mode per line: frequency in μHz, optionally followed by its degree ℓ (default 1).</label>
+      <textarea id="paste-text" spellcheck="false" placeholder="301.25 0&#10;312.48 1&#10;318.90 1"></textarea>
+      <button type="button" class="ech-btn" id="btn-paste-use">Use these frequencies</button>
+    </div>
+    <p class="ech-status" id="ech-status" aria-live="polite">Loading example…</p>
+
+    <ul class="ech-legend">
+      <li><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="none" stroke="var(--l0)" stroke-width="2"/></svg><span>ℓ = 0</span></li>
+      <li><svg width="14" height="14" aria-hidden="true"><path d="M7 2 L12.5 12 L1.5 12 Z" fill="none" stroke="var(--l1)" stroke-width="2"/></svg><span>ℓ = 1</span></li>
+      <li><svg width="14" height="14" aria-hidden="true"><rect x="2.5" y="2.5" width="9" height="9" fill="none" stroke="var(--l2)" stroke-width="2"/></svg><span>ℓ = 2</span></li>
+      <li><svg width="14" height="14" aria-hidden="true"><path d="M7 1.5 L12.5 7 L7 12.5 L1.5 7 Z" fill="none" stroke="var(--l3)" stroke-width="1.8"/></svg><span>ℓ = 3</span></li>
+      <li><svg width="22" height="10" aria-hidden="true"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 3"/></svg><span>Expected ridge from the current parameters</span></li>
+    </ul>
+
+    <div class="ech-grid">
+      <section class="ech-panel">
+        <h2>Frequency échelle</h2>
+        <p class="sub">ν mod Δν. Radial and p-like modes form ridges.</p>
+        <canvas id="c-freq" role="img" aria-label="Frequency échelle diagram"></canvas>
+      </section>
+      <section class="ech-panel">
+        <h2>Stretched period échelle</h2>
+        <p class="sub">τ mod ΔΠ<sub>1</sub>. Dipole mixed modes line up.</p>
+        <canvas id="c-period" role="img" aria-label="Stretched period échelle diagram"></canvas>
+      </section>
+      <section class="ech-panel">
+        <h2>Stretched frequency échelle</h2>
+        <p class="sub">f mod Δν. The dipole p modes are recovered.</p>
+        <canvas id="c-stretchf" role="img" aria-label="Stretched frequency échelle diagram"></canvas>
+      </section>
+    </div>
+
+    <div class="ech-params" id="ech-params">
+      <div class="ech-group" data-group="p"><h3>Pressure modes</h3></div>
+      <div class="ech-group" data-group="g"><h3>Gravity modes and coupling</h3></div>
+      <div class="ech-group" data-group="view">
+        <h3>View</h3>
+        <div class="ech-toggles">
+          <label><input type="checkbox" id="t-rep" checked> Replicated</label>
+          <label><input type="checkbox" id="t-guides" checked> Ridge guides</label>
+          <label><input type="checkbox" id="t-image" checked> Spectrum</label>
+          <label><input type="checkbox" id="t-marks" checked> Modes</label>
+        </div>
+        <details class="ech-adv" data-group="adv"><summary>Advanced: q<sub>k</sub> and α<sub>p</sub></summary></details>
+      </div>
+    </div>
+
+    <section class="ech-panel ech-spec">
+      <h2>Power spectrum in the window</h2>
+      <canvas id="c-spec" role="img" aria-label="Smoothed power spectrum with mode frequencies marked"></canvas>
+    </section>
+
+    <details id="ech-table">
+      <summary>Mode positions for the current parameters (table)</summary>
+      <div class="ech-table-wrap">
+        <table>
+          <thead><tr><th scope="col">ℓ</th><th scope="col">ν [μHz]</th><th scope="col">ν mod Δν</th><th scope="col">τ mod ΔΠ<sub>1</sub> [s]</th><th scope="col">f mod Δν</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </details>
+
+    <section class="ech-notes">
+      <h2>How it works</h2>
+      <dl>
+        <dt>Stretched period</dt>
+        <dd>Each frequency is mapped to a period τ that removes the p-mode modulation of dipole mixed modes
+          (Mosser et al. 2015). With the right ΔΠ<sub>1</sub>, q and p-mode phases, the g-dominated modes fall on
+          vertical ridges when τ is folded at ΔΠ<sub>1</sub>.
+          <div class="eq">τ = 1/ν + (ΔΠ<sub>1</sub>/π) arctan[ q / tan π(ν/Δν − ½ − ε<sub>p</sub> − d<sub>01</sub>) ]</div></dd>
+        <dt>Stretched frequency</dt>
+        <dd>The mirror transformation removes the g-mode modulation instead, so the dipole p modes line up at
+          ν mod Δν ≈ (ε<sub>p</sub> + ½ + d<sub>01</sub>) Δν. See the
+          <a href="../../files/slides/2024-tasc8-decoupling-mixed-modes.pdf">TASC8 talk on decoupling mixed modes</a>.
+          <div class="eq">f = ν − (Δν/π) arctan[ q / tan π(ε<sub>g</sub> − 1/(ν ΔΠ<sub>1</sub>)) ]</div></dd>
+        <dt>Your own data</dt>
+        <dd>A power spectrum is a text or CSV file with a frequency column in μHz and a power column. Column names such
+          as <code>freq</code> and <code>power</code> or <code>snr</code> are recognised; otherwise the first two
+          columns are used. A background-normalised spectrum (S/B) works best. Mode lists need a frequency column and
+          optionally a degree column <code>l</code>; without one every mode is treated as ℓ = 1. After loading, set
+          ν<sub>max</sub> and Δν for your star.</dd>
+        <dt>Rows and axes</dt>
+        <dd>As in clickelle, each row of an échelle is one stack of the fold, and a mode is drawn in the row whose stack
+          contains it. The vertical axis is labelled with the median frequency of each row, so it stays truthful even
+          where the stretched period échelle has rows of unequal width.</dd>
+      </dl>
+    </section>
+
+    <p class="ech-credit">The fold and stretching follow the <a href="https://github.com/parallelpro/clickelle">clickelle</a>
+      code. The two example spectra and their mode identifications come from clickelle's examples (MIT licence).</p>
+  </div>
+</main>
+
+<div id="ech-tip" role="tooltip" hidden></div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© Yaguang Li · Last updated October 2026</span>
+    <span><a href="mailto:yaguangl@hawaii.edu">yaguangl@hawaii.edu</a></span>
+  </div>
+</footer>
+
+<script type="module" src="echelle.js"></script>
+</body>
+</html>

@@ -12,7 +12,8 @@ Source for https://www.yaguangli.page/ — a plain HTML + CSS site, no build ste
 | `img/` | Portrait, research card images, the Resources banner, `og-image.jpg` (social preview) |
 | `files/` | CV and slide PDFs hosted on the site |
 | `resources/oscillations/` | Interactive oscillation explorer: page, `explorer.js`, and generated `data.json` |
-| `tools/` | `export_oscillation_data.py`, which builds that `data.json` (not used by the live site) |
+| `resources/echelle/` | Stretched échelle tool: page, `echelle.js` (interface), `echelle-core.js` (fold and stretching, a port of clickelle), `examples/` |
+| `tools/` | Scripts that build the data files above (not used by the live site) |
 | `favicon.svg`, `favicon.png`, `apple-touch-icon.png` | Site icon |
 | `fonts/` | A three-glyph subset of AR PL KaitiM GB (the LaTeX CJK `gkai` font) used for 李亚光 in the heading, with its Arphic Public License |
 | `astronomy-*/` | Redirects from the old Google Sites URLs to the matching section |
@@ -70,3 +71,15 @@ precomputed from a YREC/GYRE run using that script's own functions, then simplif
 
 To show a different run, point the first argument at another run folder and update the model description at
 the bottom of `resources/oscillations/index.html`.
+
+## Stretched échelle tool
+
+`resources/echelle/echelle-core.js` ports the fold (`make_fold`, `frequency_echelle`, `period_echelle`), the
+stretching (`make_tau`, `make_f`) and clickelle's stack-index marker placement line by line, so the diagrams match
+clickelle. Everything runs in the browser; user files are never uploaded. The two example stars come from
+clickelle's `examples/` folder and are packed with:
+
+```sh
+git clone https://github.com/parallelpro/clickelle /tmp/clickelle
+python3 tools/export_echelle_examples.py /tmp/clickelle resources/echelle/examples
+```
