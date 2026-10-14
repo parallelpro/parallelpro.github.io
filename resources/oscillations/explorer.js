@@ -12,7 +12,7 @@
   const fmtAge = myr => (myr == null ? '–' : myr < 1000 ? `${myr < 10 ? myr.toPrecision(2) : Math.round(myr)} Myr` : `${(myr / 1000).toFixed(2)} Gyr`);
 
   function richParts(str) {             // "P_rad = P_gas" -> runs, subscript where _word
-    const parts = [], re = /_([A-Za-z0-9]+)/g; let last = 0, m;
+    const parts = [], re = /_([A-Za-z0-9☉]+)/g; let last = 0, m;
     while ((m = re.exec(str))) {
       if (m.index > last) parts.push({ t: str.slice(last, m.index), sub: false });
       parts.push({ t: m[1], sub: true }); last = re.lastIndex;
@@ -144,9 +144,10 @@
       for (const v of xt) { const x = this.px(v.v); if (x >= l - 1 && x <= W - r + 1) g.fillText(v.s, x, H - b + 5); }
       g.textAlign = 'right'; g.textBaseline = 'middle';
       for (const v of yt) { const y = this.py(v.v); if (y >= t - 1 && y <= H - b + 1) g.fillText(v.s, l - 6, y); }
-      g.font = `12.5px ${T.font}`; g.fillStyle = T.muted;
-      g.textAlign = 'center'; g.textBaseline = 'alphabetic'; g.fillText(xlabel, l + (W - l - r) / 2, H - 6);
-      g.save(); g.translate(13, t + (H - t - b) / 2); g.rotate(-Math.PI / 2); g.textBaseline = 'middle'; g.fillText(ylabel, 0, 0); g.restore();
+      g.fillStyle = T.muted; g.textBaseline = 'alphabetic';
+      richText(g, xlabel, l + (W - l - r) / 2, H - 6, 12.5, 'center');
+      g.save(); g.translate(13, t + (H - t - b) / 2); g.rotate(-Math.PI / 2); g.textBaseline = 'middle';
+      richText(g, ylabel, 0, 0, 12.5, 'center'); g.restore();
     }
     polyline(segs, color, width = 2) {
       this.clip(g => {
@@ -194,7 +195,7 @@
     P.setScales(L.teff[1], L.teff[0], L.L[0], L.L[1]);           // Teff increases to the left
     const xt = valueTicks(L.teff[0], L.teff[1], [3500, 4000, 4500, 5000, 5500, 6000, 6500, 7000]);
     const yt = valueTicks(L.L[0], L.L[1], [0.2, 0.5, 1, 2, 5, 10, 20, 50, 100], v => String(v));
-    P.axes(xt, yt, 'Effective temperature [K]', 'Luminosity (Sun = 1)');
+    P.axes(xt, yt, 'Effective temperature [K]', 'Luminosity [L_☉]');
     P.polyline([{ xs: track.teff, ys: track.L }], T.axis, 1.5);
     P.clip(g => {
       g.fillStyle = T.muted;
