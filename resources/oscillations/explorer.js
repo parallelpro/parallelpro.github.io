@@ -251,7 +251,7 @@
     return [x0 + t0 * dx, y0 + t0 * dy, x0 + t1 * dx, y0 + t1 * dy];
   }
 
-  const LOGM = [-3, 0];                    // propagation diagram shows m/M from 10^-3 to 1
+  const LOGM = [-2, 0];                    // propagation diagram shows m/M from 10^-2 to 1
   // Local (Cowling, short-wavelength) dispersion relation, k_r^2 ~ (ν² − N²)(ν² − S₁²)/ν²:
   // p modes propagate where ν > N and ν > S₁; g modes where ν < N and ν < S₁ (needs N² > 0).
   function bounds(p, x) {
@@ -291,7 +291,7 @@
       if (key === 'pLow' ? yv > b.pLow : yv < b.gHigh) { g.textBaseline = 'middle'; richText(g, text, P.px(x), y, 12, 'right'); }
     };
     lab(-0.15, P.m.t + 14, 'p-mode cavity', 'pLow');
-    lab(-1.6, P.h - P.m.b - 14, 'g-mode cavity', 'gHigh');
+    lab(-1.1, P.h - P.m.b - 14, 'g-mode cavity', 'gHigh');
   }
   function drawProp() {
     const P = prP, L = D.meta.lims, p = profile(cur), g = P.ctx;
