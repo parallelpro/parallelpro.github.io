@@ -1,0 +1,6 @@
+.DS_Store
+# Google Drive sync artefacts
+*.tmp.driveupload
+*.tmp.drivedownload
+.tmp.drive*
+Icon?
