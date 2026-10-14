@@ -4,3 +4,6 @@
 *.tmp.drivedownload
 .tmp.drive*
 Icon?
+
+# private notes, not published
+IDEAS.md
