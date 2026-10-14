@@ -11,6 +11,8 @@ Source for https://www.yaguangli.page/ — a plain HTML + CSS site, no build ste
 | `css/style.css` | All styling (colours live in the `:root` block at the top) |
 | `img/` | Portrait, research card images, the Resources banner, `og-image.jpg` (social preview) |
 | `files/` | CV and slide PDFs hosted on the site |
+| `resources/oscillations/` | Interactive oscillation explorer: page, `explorer.js`, and generated `data.json` |
+| `tools/` | `export_oscillation_data.py`, which builds that `data.json` (not used by the live site) |
 | `favicon.svg`, `favicon.png`, `apple-touch-icon.png` | Site icon |
 | `fonts/` | A three-glyph subset of AR PL KaitiM GB (the LaTeX CJK `gkai` font) used for 李亚光 in the heading, with its Arphic Public License |
 | `astronomy-*/` | Redirects from the old Google Sites URLs to the matching section |
@@ -54,3 +56,17 @@ Overwrite `files/Yaguang_Li_CV.pdf` and push. The link on the home page does not
 
 The site is served by GitHub Pages from the `main` branch of `parallelpro/parallelpro.github.io`.
 Pushing to `main` redeploys within a minute or two.
+
+## Regenerating the oscillation explorer data
+
+The explorer redraws the four panels of `sg-rotation/src/examine_frequency.py` in the browser. Its data file is
+precomputed from a YREC/GYRE run using that script's own functions, then simplified to screen resolution
+(about 0.8 MB, or 230 KB as served). Run it with the sg-rotation virtualenv, which has h5py and pandas:
+
+```sh
+../sg-rotation/.venv/bin/python tools/export_oscillation_data.py \
+    ../sg-rotation/hpc/run_1p0Msun resources/oscillations/data.json
+```
+
+To show a different run, point the first argument at another run folder and update the model description at
+the bottom of `resources/oscillations/index.html`.
