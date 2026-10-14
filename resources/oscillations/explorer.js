@@ -101,6 +101,7 @@
       s1: v('--s1'), s2: v('--s2'), s3: v('--s3'), hl: v('--hl'), line: v('--line'),
       card: v('--card'), fg: v('--fg'), muted: v('--muted'), grid: v('--border'), axis: v('--rule'),
       font: getComputedStyle(document.body).fontFamily,
+      wash: matchMedia('(prefers-color-scheme: dark)').matches ? 0.2 : 0.12,
     };
   }
 
@@ -124,6 +125,7 @@
       this.px = v => l + (v - x0) / (x1 - x0) * (this.w - l - r);
       this.py = v => this.h - b - (v - y0) / (y1 - y0) * (this.h - t - b);
       this.ix = p => x0 + (p - l) / (this.w - l - r) * (x1 - x0);
+      this.iy = p => y0 + (this.h - b - p) / (this.h - t - b) * (y1 - y0);
     }
     inPlot(x, y) { const { l, r, t, b } = this.m; return x >= l && x <= this.w - r && y >= t && y <= this.h - b; }
     clear() { this.ctx.clearRect(0, 0, this.w, this.h); }
@@ -249,11 +251,54 @@
     return [x0 + t0 * dx, y0 + t0 * dy, x0 + t1 * dx, y0 + t1 * dy];
   }
 
+  const LOGM = [-3, 0];                    // propagation diagram shows m/M from 10^-3 to 1
+  // Local (Cowling, short-wavelength) dispersion relation, k_r^2 ~ (ν² − N²)(ν² − S₁²)/ν²:
+  // p modes propagate where ν > N and ν > S₁; g modes where ν < N and ν < S₁ (needs N² > 0).
+  function bounds(p, x) {
+    const n = interpAt(p.brunt, x), s = interpAt(p.lamb, x);
+    if (s == null) return null;
+    return { pLow: n == null ? s : Math.max(n, s), gHigh: n == null ? null : Math.min(n, s) };
+  }
+  function drawCavities(P, p) {
+    const nCols = Math.max(120, Math.round(P.w - P.m.l - P.m.r)), top = P.py(P.y1), bot = P.py(P.y0);
+    P.clip(g => {
+      g.globalAlpha = T.wash;
+      for (const [key, color, edge] of [['pLow', T.s2, top], ['gHigh', T.s1, bot]]) {
+        g.fillStyle = color;
+        let run = [];
+        const flush = () => {
+          if (run.length > 1) {
+            g.beginPath(); g.moveTo(run[0][0], edge);
+            for (const [X, Y] of run) g.lineTo(X, Y);
+            g.lineTo(run[run.length - 1][0], edge); g.closePath(); g.fill();
+          }
+          run = [];
+        };
+        for (let i = 0; i < nCols; i++) {
+          const x = P.x0 + (P.x1 - P.x0) * i / (nCols - 1), b = bounds(p, x);
+          if (!b || b[key] == null) { flush(); continue; }
+          run.push([P.px(x), P.py(b[key])]);
+        }
+        flush();
+      }
+      g.globalAlpha = 1;
+    });
+    // direct labels, only where the label point really lies in that cavity
+    const g = P.ctx; g.fillStyle = T.muted;
+    const lab = (x, y, text, key) => {
+      const b = bounds(p, x); if (!b || b[key] == null) return;
+      const yv = P.iy(y);
+      if (key === 'pLow' ? yv > b.pLow : yv < b.gHigh) { g.textBaseline = 'middle'; richText(g, text, P.px(x), y, 12, 'right'); }
+    };
+    lab(-0.15, P.m.t + 14, 'p-mode cavity', 'pLow');
+    lab(-1.6, P.h - P.m.b - 14, 'g-mode cavity', 'gHigh');
+  }
   function drawProp() {
     const P = prP, L = D.meta.lims, p = profile(cur), g = P.ctx;
     P.resize(); P.clear();
-    P.setScales(L.logm[0], L.logm[1], L.lognu[0], L.lognu[1]);
-    P.axes(decadeTicks(L.logm[0], L.logm[1]), decadeTicks(L.lognu[0], L.lognu[1]), 'Mass coordinate m / M', 'Frequency [μHz]');
+    P.setScales(LOGM[0], LOGM[1], L.lognu[0], L.lognu[1]);
+    P.axes(decadeTicks(LOGM[0], LOGM[1]), decadeTicks(L.lognu[0], L.lognu[1]), 'Mass coordinate m / M', 'Frequency [μHz]');
+    drawCavities(P, p);
     P.polyline(p.lamb, T.s2);
     P.polyline(p.brunt, T.s1);
     P.hline(Math.log10(p.numax), T.fg, 'ν_max');
@@ -267,10 +312,10 @@
   function drawEchelle() {
     const P = ecP, p = profile(cur), g = P.ctx, dnu = p.dnu;
     P.resize(); P.clear();
-    let lo = Infinity, hi = -Infinity;
-    for (const m of p.modes) for (const v of m.nu) { if (v < lo) lo = v; if (v > hi) hi = v; }
-    const span = hi - lo;
-    P.setScales(0, dnu, lo - 0.05 * span, hi + 0.05 * span);
+    // Modes were computed within numax ± 3σ, σ = exp(0.9638 ln numax − 1.7145) (the envelope width of
+    // get_model_Dnu; Yu+2018, Lund+2017, Li+2020). Limits from that window move smoothly with numax.
+    const sig = Math.exp(0.9638 * Math.log(p.numax) - 1.7145);
+    P.setScales(0, dnu, p.numax - 3.2 * sig, p.numax + 3.2 * sig);
     const xt = linTicks(0, dnu, 4).values.map(v => ({ v, s: fmtTick(v) }));
     const yt = linTicks(P.y0, P.y1, 6).values.map(v => ({ v, s: fmtTick(v) }));
     P.axes(xt, yt, 'ν mod Δν [μHz]', 'Frequency ν [μHz]');
@@ -466,7 +511,8 @@
         key: lx,
         rows: [[n == null ? 'N² < 0' : `${fmtFreq(10 ** n)} μHz`, n == null ? '(convective)' : 'N'],
                [s == null ? '–' : `${fmtFreq(10 ** s)} μHz`, 'S₁'],
-               [mf < 1e-3 ? mf.toExponential(1) : mf.toPrecision(3), 'm / M']],
+               [mf < 1e-3 ? mf.toExponential(1) : mf.toPrecision(3), 'm / M'],
+               [cavityName(p, lx), 'at ν_max']],
       };
     }, drawProp);
     wireHover(ecP, (x, y) => {
@@ -491,6 +537,13 @@
     status.hidden = true;
     $('.osc').classList.add('is-ready');
     select(isFinite(start) ? start : N - 1);
+  }
+  function cavityName(p, x) {
+    const b = bounds(p, x), y = Math.log10(p.numax);
+    if (!b) return '–';
+    if (y > b.pLow) return 'p-mode cavity';
+    if (b.gHigh != null && y < b.gHigh) return 'g-mode cavity';
+    return 'evanescent';
   }
   const fmtFreq = v => (v >= 100 ? Math.round(v).toLocaleString('en') : v.toPrecision(3));
 
