@@ -9,6 +9,8 @@ Sources, all for the same star:
   * Dnu and eps_p: a straight-line fit of frequency against radial order to the
     catalogue's l = 0 modes, as clickelle's "refine Dnu" does.
 
+Hand-tuned values (--dnu, --eps-p, --dpi1, --q, --d01, --eps-g) override the catalogue ones.
+
 Usage:
     python tools/export_echelle_catalog_example.py <KIC> <spectra dir> <sample dir> <out dir> [--half 3]
 """
@@ -47,6 +49,8 @@ def main():
     ap.add_argument("out_dir")
     ap.add_argument("--half", type=int, default=3, help="window half-width in Dnu around numax")
     ap.add_argument("--kind", default="red clump")
+    for key in ("dnu", "eps_p", "dpi1", "q", "d01", "eps_g"):
+        ap.add_argument(f"--{key.replace('_', '-')}", type=float, help=f"hand-tuned {key}, overriding the catalogue value")
     a = ap.parse_args()
 
     sample = Path(a.sample_dir)
@@ -81,6 +85,10 @@ def main():
         "snr100": [int(round(v * 100)) for v in sb],
         "modes": sorted([[round(float(r.fc), 4), int(r.l)] for r in modes.itertuples()]),
     }
+    tuned = {k: getattr(a, k) for k in ("dnu", "eps_p", "dpi1", "q", "d01", "eps_g") if getattr(a, k) is not None}
+    data["params"].update(tuned)
+    if tuned:
+        data["tuned"] = sorted(tuned)
     out = Path(a.out_dir) / f"KIC{a.kic}.json"
     text = json.dumps(data, separators=(",", ":"))
     out.write_text(text)

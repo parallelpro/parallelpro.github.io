@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 STARS = {
-    "KIC10272858": "red giant",
+    "KIC10272858": "red giant branch",
     "KIC10972873": "subgiant",
 }
 

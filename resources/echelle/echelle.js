@@ -146,6 +146,7 @@ async function loadExample(id, hashParams) {
   S.example = id;
   resetParams(d.numax, d.params.dnu);
   Object.assign(S.p, { eps_p: d.params.eps_p, dpi1: d.params.dpi1, q: d.params.q, d01: d.params.d01 });
+  for (const k of ['eps_g', 'q_k', 'alpha_p']) if (Number.isFinite(d.params[k])) S.p[k] = d.params[k];
   S.v.smooth = d.params.smooth;
   S.v.half = d.view?.half ?? 7;
   S.halfAuto = false;
