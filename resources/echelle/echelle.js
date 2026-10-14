@@ -2,9 +2,15 @@
 import * as C from './echelle-core.js';
 
 const $ = (sel, el = document) => el.querySelector(sel);
-const EXAMPLES = { KIC10272858: 'examples/KIC10272858.json', KIC10972873: 'examples/KIC10972873.json' };
+const EXAMPLES = {
+  KIC10272858: 'examples/KIC10272858.json', KIC10972873: 'examples/KIC10972873.json',
+  KIC7593843: 'examples/KIC7593843.json',
+};
 const DEFAULTS = { eps_p: 1.0, d01: 0, dpi1: 100, q: 0.15, eps_g: 0.3, q_k: 0, alpha_p: 0 };
 const dnuScaling = numax => 0.263 * numax ** 0.772;
+// window half-width in Dnu: ~0.4 numax/Dnu, so clump stars (numax ~ 8 Dnu) don't fold down to
+// very low frequencies, where long periods would pile hundreds of rows into the period echelle
+const autoHalf = (numax, dnu) => Math.min(7, Math.max(2, Math.round(0.4 * numax / dnu)));
 
 // ---------- state ----------
 const S = {
@@ -101,6 +107,8 @@ function syncControls() {
   for (const [id, key] of Object.entries({ 't-rep': 'rep', 't-guides': 'guides', 't-image': 'image', 't-marks': 'marks' })) $('#' + id).checked = S.v[key];
 }
 function afterChange(key) {
+  if (key === 'half') S.halfAuto = false;
+  if (S.halfAuto && (key === 'numax' || key === 'dnu')) { S.v.half = autoHalf(S.numax, S.p.dnu); syncControls(); }
   if (key === 'smooth') resmooth();
   schedule();
   scheduleHash();
@@ -116,6 +124,8 @@ function resetParams(numax, dnu) {
   S.numax = S.numaxRef = numax;
   S.p = { dnu, ...DEFAULTS };
   S.dnuRef = dnu;
+  S.v.half = autoHalf(numax, dnu);
+  S.halfAuto = true;          // follow numax/dnu until the window is set by hand
 }
 
 async function loadExample(id, hashParams) {
@@ -137,6 +147,8 @@ async function loadExample(id, hashParams) {
   resetParams(d.numax, d.params.dnu);
   Object.assign(S.p, { eps_p: d.params.eps_p, dpi1: d.params.dpi1, q: d.params.q, d01: d.params.d01 });
   S.v.smooth = d.params.smooth;
+  S.v.half = d.view?.half ?? 7;
+  S.halfAuto = false;
   if (hashParams) applyHash(hashParams);
   S.notice = '';
   $('#ex-select').value = id;

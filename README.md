@@ -83,3 +83,12 @@ clickelle's `examples/` folder and are packed with:
 git clone https://github.com/parallelpro/clickelle /tmp/clickelle
 python3 tools/export_echelle_examples.py /tmp/clickelle resources/echelle/examples
 ```
+
+The red clump example (KIC 7593843) is built from published catalogues instead: the Yu et al. (2018) S/B spectrum,
+Kallinger (2019) mode frequencies and Vrard et al. (2016) ΔΠ1 and q. To add another catalogue star, run the exporter
+and add an entry to `EXAMPLES` in `echelle.js` and to the select menu in `index.html`:
+
+```sh
+../sg-rotation/.venv/bin/python tools/export_echelle_catalog_example.py 7593843 \
+    ~/Onedrive/Work/database/Spectra16000 ../stretched-frequency/sample resources/echelle/examples --half 3
+```
