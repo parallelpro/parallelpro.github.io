@@ -1,6 +1,6 @@
 /* Oscillation explorer: four linked panels driven by one slider.
-   A browser port of sg-rotation/src/examine_frequency.py; the numbers are
-   precomputed by tools/export_oscillation_data.py into data.json. */
+   A browser port of a YREC/GYRE frequency examiner; the numbers are
+   precomputed into data.json. */
 (() => {
   'use strict';
 

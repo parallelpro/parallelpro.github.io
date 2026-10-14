@@ -1,4 +1,4 @@
-// Echelle core: a line-by-line port of stretching.py (stretched-frequency) and
+// Echelle core: a line-by-line port of the stretched-echelle code and
 // clickelle's echelle.py / asymptotic.py, plus clickelle's stack-index marker
 // bookkeeping. Pure functions, no DOM, so they can be tested against Python.
 

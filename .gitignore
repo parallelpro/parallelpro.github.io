@@ -5,5 +5,7 @@
 .tmp.drive*
 Icon?
 
-# private notes, not published
+# private notes and data-building scripts, not published
 IDEAS.md
+NOTES.md
+tools/
