@@ -28,7 +28,7 @@
     @media (prefers-color-scheme: dark) {
       .osc { --s1: #3987e5; --s2: #d95926; --s3: #199e70; --hl: #e66767; --line: #9085e9; }
     }
-    .wrap-wide { max-width: 1120px; }
+    .wrap-wide { max-width: 1240px; }
     .osc-head { max-width: 760px; padding-top: 2.4rem; }
     .osc-head h1 { margin: 0 0 0.6rem; font-size: clamp(1.8rem, 4vw, 2.3rem); }
     .osc-head p { margin: 0 0 0.8rem; }
@@ -57,14 +57,20 @@
     .osc-readout div { display: flex; gap: 6px; }
     .osc-readout dt { margin: 0; }
     .osc-readout dd { margin: 0; color: var(--fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+    /* phones: one scrollable line, so the sticky controls stay short */
+    @media (max-width: 600px) { .osc-readout { flex-wrap: nowrap; overflow-x: auto; white-space: nowrap; scrollbar-width: none; } }
 
-    .osc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 18px; }
+    .osc-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 18px; }
+    @media (max-width: 1000px) { .osc-grid { grid-template-columns: 1fr 1fr; } }
     @media (max-width: 820px) { .osc-grid { grid-template-columns: 1fr; } }
     .osc-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px 10px; min-width: 0; }
     .osc-panel h2 { margin: 0 0 4px; font-size: 1.15rem; }
     .osc-legend { display: flex; flex-wrap: wrap; gap: 2px 16px; margin: 0 0 6px; padding: 0; list-style: none; font-size: 0.86rem; color: var(--muted); }
     .osc-legend li { margin: 0; display: flex; align-items: center; gap: 6px; }
-    .osc-panel canvas { display: block; width: 100%; aspect-ratio: 5 / 4; touch-action: pan-y; }
+    .teff-scale { display: inline-flex; align-items: center; gap: 5px; font-size: 0.8rem; }
+    #teff-bar { display: inline-block; width: 64px; height: 9px; border-radius: 3px; outline: 1px solid var(--border); }
+    .osc-panel { display: flex; flex-direction: column; }
+    .osc-panel canvas { display: block; width: 100%; aspect-ratio: 5 / 4; touch-action: pan-y; margin-top: auto; }   /* line plots up across a row */
     .osc:not(.is-ready) .osc-grid { opacity: 0.4; }
     #osc-status { margin: 1rem 0; color: var(--muted); }
 
@@ -128,6 +134,8 @@
       <dl class="osc-readout" aria-live="polite">
         <div><dt>Model</dt><dd id="r-num">–</dd></div>
         <div><dt>Age</dt><dd id="r-age">–</dd></div>
+        <div><dt>T<sub>eff</sub></dt><dd id="r-teff">–</dd></div>
+        <div><dt>Radius</dt><dd><span id="r-rad">–</span> R<sub>☉</sub></dd></div>
         <div><dt>Central H, X<sub>c</sub></dt><dd id="r-xc">–</dd></div>
         <div><dt>ν<sub>max</sub></dt><dd id="r-numax">–</dd></div>
         <div><dt>Δν</dt><dd id="r-dnu">–</dd></div>
@@ -144,9 +152,27 @@
         <h2>H–R diagram</h2>
         <ul class="osc-legend">
           <li><svg width="22" height="10" aria-hidden="true"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--rule)" stroke-width="1.5"/></svg><span>Evolutionary track</span></li>
-          <li><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="var(--hl)"/></svg><span>Selected model</span></li>
+          <li><span>Selected model: colour shows T<sub>eff</sub></span><span class="teff-scale"><span>4,300 K</span><span id="teff-bar" aria-hidden="true"></span><span>5,900 K</span></span></li>
+          <li><span>Size shows radius</span><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="6" fill="none" stroke="var(--fg)" stroke-opacity="0.6"/></svg><span>1 R<sub>☉</sub></span></li>
         </ul>
         <canvas id="c-hr" role="img" aria-label="H–R diagram"></canvas>
+      </section>
+
+      <section class="osc-panel">
+        <h2>Simulated light curve</h2>
+        <ul class="osc-legend"><li><span id="lc-sub">–</span></li></ul>
+        <canvas id="c-lc" role="img" aria-label="Simulated light curve of the selected model"></canvas>
+      </section>
+
+      <section class="osc-panel">
+        <h2>Simulated power spectrum</h2>
+        <ul class="osc-legend">
+          <li><svg width="22" height="10" aria-hidden="true"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--rule)" stroke-width="1.5"/></svg><span>Simulated</span></li>
+          <li><svg width="22" height="10" aria-hidden="true"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--fg)" stroke-width="1.6"/></svg><span>Expected, smoothed over Δν</span></li>
+          <li><svg width="22" height="10" aria-hidden="true"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--fg)" stroke-width="1.3" stroke-dasharray="5 4"/></svg><span>ν<sub>max</sub></span></li>
+          <li><span id="ps-sub">–</span></li>
+        </ul>
+        <canvas id="c-ps" role="img" aria-label="Simulated power spectrum of the selected model"></canvas>
       </section>
 
       <section class="osc-panel">
@@ -196,8 +222,36 @@
       <h2>How to read the panels</h2>
       <dl>
         <dt>H–R diagram</dt>
-        <dd>The full evolutionary track. Grey dots are the models whose oscillation frequencies were computed; the red
-          marker is the one selected.</dd>
+        <dd>The full evolutionary track. Grey dots are the models whose oscillation frequencies were computed. The
+          selected model is drawn as a star: its colour follows its effective temperature, and its diameter is
+          proportional to its radius (1 R<sub>☉</sub> is shown in the legend), so you can watch it swell into a red
+          giant.</dd>
+        <dt>Simulated light curve</dt>
+        <dd>What a space telescope would record for this model: stochastically excited oscillations, granulation and
+          photon noise, shown over its first 3 days on a fixed flux scale, so you can see the variability grow
+          as the star evolves. The full simulation has
+          65,536 points at a one-minute cadence, similar to Kepler's short cadence, so it spans 45.5 days for every
+          model. It is illustrative rather than a fit to a real star.
+          Every model gets its own independent noise, as separate observations would, but the same model always shows
+          the same realisation.</dd>
+        <dt>Simulated power spectrum</dt>
+        <dd>The power spectrum of the full simulated light curve (grey) and the expected spectrum without noise,
+          smoothed over one large separation Δν (black), so the hump shows the envelope rather than single peaks. Each frequency bin scatters about the expected value as χ² with two degrees of freedom, as for
+          stochastically excited oscillations. Granulation dominates at low frequency and the oscillation hump sits at ν<sub>max</sub>, sliding to
+          lower frequency and growing as the star evolves. Radial-mode amplitudes follow a power law in
+          ν<sub>max</sub> through the Sun and Kepler red giants
+          (<a href="https://ui.adsabs.harvard.edu/abs/2018ApJS..236...42Y/abstract">Yu et al. 2018</a>), and their
+          linewidths a power law in T<sub>eff</sub> through the Sun and red giants
+          (<a href="https://ui.adsabs.harvard.edu/abs/2018A%26A...616A..94V/abstract">Vrard et al. 2018</a>). Dipole and
+          quadrupole modes use the visibilities measured by Kepler
+          (<a href="https://ui.adsabs.harvard.edu/abs/2012A%26A...537A..30M/abstract">Mosser et al. 2012</a>). Mixed
+          modes have their squared amplitude and linewidth divided by their inertia relative to radial modes
+          (<a href="https://ui.adsabs.harvard.edu/abs/2014A%26A...572A..11G/abstract">Grosjean et al. 2014</a>), so
+          g-dominated modes are narrow and often unresolved. The background has three Harvey profiles: the two granulation components of
+          <a href="https://ui.adsabs.harvard.edu/abs/2014A%26A...570A..41K/abstract">Kallinger et al. (2014)</a>, and a slower
+          one at low frequency, scaled from the Sun's irradiance spectrum
+          (<a href="https://ui.adsabs.harvard.edu/abs/2004A%26A...414.1139A/abstract">Aigrain et al. 2004</a>), all scaling
+          with ν<sub>max</sub>.</dd>
         <dt>Temperature–density structure</dt>
         <dd>Temperature against density through the star, from the centre (upper right) to the surface (lower left).
           The dashed lines mark where radiation pressure equals gas pressure and where electrons become degenerate,
@@ -233,6 +287,7 @@
   </div>
 </footer>
 
+<script src="simulate.js" defer></script>
 <script src="explorer.js" defer></script>
 </body>
 </html>

@@ -73,9 +73,9 @@
       teff: P.teff[i], L: P.L[i], numax: P.numax[i], dnu: P.dnu[i], eps: P.eps[i],
       trho: decSegs(P.trho[i], S.log), brunt: decSegs(P.brunt[i], S.log), lamb: decSegs(P.lamb[i], S.log),
       modes: [
-        { l: 0, nu: decDelta(P.l0[i], S.freq), d: null },
-        { l: 1, nu: decDelta(P.l1[i], S.freq), d: P.d1[i].map(v => v / S.diam) },
-        { l: 2, nu: decDelta(P.l2[i], S.freq), d: P.d2[i].map(v => v / S.diam) },
+        { l: 0, nu: decDelta(P.l0[i], S.freq), d: null, e: null },
+        { l: 1, nu: decDelta(P.l1[i], S.freq), d: P.d1[i].map(v => v / S.diam), e: P.e1[i] },
+        { l: 2, nu: decDelta(P.l2[i], S.freq), d: P.d2[i].map(v => v / S.diam), e: P.e2[i] },
       ],
     };
     cache.set(i, p);
@@ -189,7 +189,36 @@
 
   // ---------- the four panels ----------
   let cur = 0;
-  let hrP, tpP, prP, ecP;
+  let hrP, tpP, prP, ecP, lcP, psP;
+
+  // Selected model drawn as a star: colour from Teff, diameter proportional to radius.
+  // Radius from Stefan-Boltzmann, R/Rsun = sqrt(L/Lsun) (Tsun/Teff)^2, which matches YREC's own log R.
+  const TSUN = 5772, PX_PER_RSUN = 6;
+  const radiusOf = i => Math.sqrt(10 ** D.profiles.L[i]) * (TSUN / 10 ** D.profiles.teff[i]) ** 2;
+  // star-colour scale: hue order follows a blackbody (red -> orange -> yellow -> white) but more saturated,
+  // since true blackbody colours over 4300-5900 K are all near-white and vanish on a light background
+  const STAR_RAMP = [[3800, [201, 42, 42]], [4300, [232, 89, 12]], [4800, [247, 128, 7]],
+                     [5300, [250, 176, 5]], [5800, [255, 212, 59]], [6500, [255, 243, 191]]];
+  function teffRGB(t) {
+    const r = STAR_RAMP;
+    if (t <= r[0][0]) return r[0][1];
+    for (let k = 1; k < r.length; k++) if (t <= r[k][0]) {
+      const f = (t - r[k - 1][0]) / (r[k][0] - r[k - 1][0]);
+      return r[k - 1][1].map((c, j) => c + f * (r[k][1][j] - c));
+    }
+    return r[r.length - 1][1];
+  }
+  const rgb = (a, k = 1, w = 0) => `rgb(${a.map(c => Math.round(Math.min(255, c * k + (255 - c * k) * w))).join(',')})`;
+  const teffColor = t => rgb(teffRGB(t));
+  function drawStar(g, X, Y, rpx, t) {
+    const c = teffRGB(t);
+    g.beginPath(); g.arc(X, Y, rpx + 1.5, 0, 2 * Math.PI); g.fillStyle = T.card; g.fill();   // surface ring
+    // limb darkening: bright centre, the Teff colour across the disc, darker towards the edge
+    const grad = g.createRadialGradient(X, Y, 0, X, Y, rpx);
+    grad.addColorStop(0, rgb(c, 1, 0.45)); grad.addColorStop(0.55, rgb(c)); grad.addColorStop(1, rgb(c, 0.8));
+    g.beginPath(); g.arc(X, Y, rpx, 0, 2 * Math.PI); g.fillStyle = grad; g.fill();
+    g.lineWidth = 1; g.strokeStyle = T.fg; g.globalAlpha = 0.55; g.stroke(); g.globalAlpha = 1;
+  }
 
   function drawHR() {
     const P = hrP, L = D.meta.lims, g = P.ctx;
@@ -204,9 +233,115 @@
       for (let i = 0; i < N; i++) { g.beginPath(); g.arc(P.px(D.profiles.teff[i]), P.py(D.profiles.L[i]), 1.6, 0, 2 * Math.PI); g.fill(); }
       if (P.hover != null) P.ring(P.px(D.profiles.teff[P.hover]), P.py(D.profiles.L[P.hover]), 7);
       const X = P.px(D.profiles.teff[cur]), Y = P.py(D.profiles.L[cur]);
-      g.beginPath(); g.arc(X, Y, 6.5, 0, 2 * Math.PI); g.fillStyle = T.hl; g.fill();
-      g.lineWidth = 2; g.strokeStyle = T.card; g.stroke();
+      drawStar(g, X, Y, PX_PER_RSUN * radiusOf(cur), 10 ** D.profiles.teff[cur]);
     });
+  }
+
+  // ---------- simulated observations (simulate.js) ----------
+  const simCache = new Map();
+  function sim(i) {
+    if (simCache.has(i)) return simCache.get(i);
+    const p = profile(i), modes = [];
+    for (const m of p.modes) m.nu.forEach((nu, k) => modes.push({ nu, l: m.l, logr: m.e ? m.e[k] / 100 : 0 }));
+    // a seed per model: each step gets independent chi^2 noise, like a separate observation,
+    // while revisiting a model shows the same realisation
+    const s = OscSim.simulate({ numax: p.numax, teff: 10 ** p.teff, modes }, 20261016 + 7919 * i);
+    // expected spectrum with the modes smoothed over one large separation, so the hump shows the envelope
+    // height (about A^2 sum(V^2) / Dnu) instead of single peak tops; the background is already smooth and is
+    // added back unsmoothed, so steep low-frequency slopes are not dragged across half a Dnu
+    const bg = new Float64Array(s.limit.length);
+    for (let k = 1; k < bg.length; k++) bg[k] = OscSim.granulation(k * s.df, p.numax) + OscSim.WHITE;
+    const modesOnly = s.limit.map((v, k) => (k ? v - bg[k] : 0));
+    const sm = boxcar(modesOnly, Math.max(1, Math.round(p.dnu / s.df)));
+    s.limitSmooth = sm.map((v, k) => v + bg[k]);
+    simCache.set(i, s);
+    if (simCache.size > 6) simCache.delete(simCache.keys().next().value);     // keep memory small
+    return s;
+  }
+  function boxcar(arr, w) {                     // centred moving average; averages what exists at the edges
+    const n = arr.length, c = new Float64Array(n + 1), out = new Float64Array(n), h = Math.floor(w / 2);
+    for (let k = 0; k < n; k++) c[k + 1] = c[k] + arr[k];
+    for (let k = 0; k < n; k++) { const a = Math.max(1, k - h), b = Math.min(n - 1, k + h); out[k] = b >= a ? (c[b + 1] - c[a]) / (b - a + 1) : arr[k]; }
+    return out;
+  }
+  const LC_DAYS = 3;                          // light-curve panel shows the first 3 days of every simulation
+  const LC_YMAX = 1100;                       // ppm, fixed: the largest 6-day excursion over all models is ~1000 ppm
+  function lcWindow(s) {
+    return { n: Math.min(s.N, Math.round(LC_DAYS * 86400 / s.dt)), unit: ['days', 86400] };
+  }
+  const fmtCadence = dt => (dt % 60 === 0 ? `${dt / 60} min` : dt < 120 ? `${Math.round(dt)} s` : `${(dt / 60).toFixed(dt < 600 ? 1 : 0)} min`);
+  const fmtSpan = sec => (sec < 2 * 86400 ? `${(sec / 3600).toFixed(1)} hours` : sec < 365.25 * 86400 ? `${Math.round(sec / 86400)} days` : `${(sec / 86400 / 365.25).toFixed(1)} years`);
+
+  function drawLC() {
+    const P = lcP, s = sim(cur), g = P.ctx, w = lcWindow(s);
+    P.resize(); P.clear();
+    const span = w.n * s.dt / w.unit[1];
+    P.setScales(0, span, -LC_YMAX, LC_YMAX);
+    P.axes(linTicks(0, span, 6).values.map(v => ({ v, s: fmtTick(v) })),
+           linTicks(-LC_YMAX, LC_YMAX, 4).values.map(v => ({ v, s: String(v).replace('-', '−') })),
+           `Time [${w.unit[0]}]`, 'Flux [ppm]');
+    // 8640 points on a few hundred pixels: keep each pixel column's first, lowest, highest and last value
+    const xs = [], ys = [];
+    let col = null, a, lo, hi, z, iLo, iHi;
+    const emit = () => { if (col !== null) for (const q of [a, iLo <= iHi ? lo : hi, iLo <= iHi ? hi : lo, z]) { xs.push(q[0]); ys.push(q[1]); } };
+    for (let k = 0; k < w.n; k++) {
+      const x = k * s.dt / w.unit[1], y = s.flux[k], c = Math.round(P.px(x));
+      if (c !== col) { emit(); col = c; a = lo = hi = [x, y]; iLo = iHi = k; }
+      if (y < lo[1]) { lo = [x, y]; iLo = k; }
+      if (y > hi[1]) { hi = [x, y]; iHi = k; }
+      z = [x, y];
+    }
+    emit();
+    P.polyline([{ xs: Float64Array.from(xs), ys: Float64Array.from(ys) }], T.fg, 1);
+    if (P.hover != null) {
+      const X = Math.round(P.px(P.hover)) + 0.5;
+      g.save(); g.strokeStyle = T.fg; g.globalAlpha = 0.35; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(X, P.m.t); g.lineTo(X, P.h - P.m.b); g.stroke(); g.restore();
+    }
+  }
+
+  const PS_X = [Math.log10(0.25), 4], PS_Y = [-2, 6];   // log10: 0.25 (lowest resolved) to 10^4 uHz; 10^-2 to 10^6 ppm^2/uHz
+  // Thin a long spectrum for drawing: per pixel column keep the first, lowest, highest and last bin,
+  // so sparse low-frequency bins join up and dense high-frequency bins still show every peak.
+  function thinned(P, s, arr, upperOnly = false) {
+    const xs = [], ys = [];
+    let col = null, first, last, lo, hi, iLo, iHi;
+    const emit = () => {
+      if (col === null) return;
+      const pts = upperOnly ? [[hi[0], hi[1]]]
+        : [[first[0], first[1]], iLo <= iHi ? [lo[0], lo[1]] : [hi[0], hi[1]], iLo <= iHi ? [hi[0], hi[1]] : [lo[0], lo[1]], [last[0], last[1]]];
+      for (const [x, y] of pts) { xs.push(x); ys.push(y); }
+    };
+    for (let k = 1; k < arr.length; k++) {
+      const x = Math.log10(k * s.df);
+      if (x < P.x0 - 0.05 || x > P.x1 + 0.05) continue;
+      const y = Math.log10(Math.max(arr[k], 1e-12)), c = Math.round(P.px(x));
+      if (c !== col) { emit(); col = c; first = [x, y]; lo = hi = [x, y]; iLo = iHi = k; }
+      if (y < lo[1]) { lo = [x, y]; iLo = k; }
+      if (y > hi[1]) { hi = [x, y]; iHi = k; }
+      last = [x, y];
+    }
+    emit();
+    return [{ xs: Float64Array.from(xs), ys: Float64Array.from(ys) }];
+  }
+  function drawPS() {
+    const P = psP, p = profile(cur), s = sim(cur), g = P.ctx;
+    P.resize(); P.clear();
+    P.setScales(PS_X[0], PS_X[1], PS_Y[0], PS_Y[1]);
+    P.axes(decadeTicks(PS_X[0], PS_X[1]), decadeTicks(PS_Y[0], PS_Y[1]), 'Frequency [μHz]', 'Power density [ppm²/μHz]');
+    P.polyline(thinned(P, s, s.power), T.axis, 1);
+    P.polyline(thinned(P, s, s.limitSmooth, true), T.fg, 1.6);
+    const X = P.px(Math.log10(p.numax));
+    P.clip(g => {
+      g.save(); g.setLineDash([5, 4]); g.strokeStyle = T.fg; g.lineWidth = 1.2;
+      g.beginPath(); g.moveTo(X, P.m.t); g.lineTo(X, P.h - P.m.b); g.stroke(); g.restore();
+      g.fillStyle = T.fg; g.textBaseline = 'top'; richText(g, 'ν_max', X + 4, P.m.t + 4, 12, 'left');
+    });
+    if (P.hover != null) {
+      const H = Math.round(P.px(P.hover)) + 0.5;
+      g.save(); g.strokeStyle = T.fg; g.globalAlpha = 0.35; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(H, P.m.t); g.lineTo(H, P.h - P.m.b); g.stroke(); g.restore();
+    }
   }
 
   function drawTP() {
@@ -402,7 +537,7 @@
     const p = D.profiles;
     return {
       key: best, i: best,
-      rows: [[fmtAge(p.age[best]), 'age'], [`${Math.round(10 ** p.teff[best])} K`, 'Teff'],
+      rows: [[fmtAge(p.age[best]), 'age'], [`${Math.round(10 ** p.teff[best])} K`, 'T_eff'], [`${radiusOf(best).toFixed(2)} R_☉`, 'radius'],
              [`${fmt(p.numax[best], 0)} μHz`, 'ν_max'], ['', 'click to select']],
     };
   }
@@ -417,16 +552,23 @@
     $('#r-num').textContent = `${p.num} / ${D.meta.first_profile + N - 1}`;
     $('#r-age').textContent = fmtAge(p.age);
     $('#r-xc').textContent = fmt(p.xc, 3);
+    $('#r-teff').textContent = `${Math.round(10 ** p.teff).toLocaleString('en')} K`;
+    $('#r-rad').textContent = radiusOf(cur).toFixed(2);
     $('#r-numax').textContent = `${fmt(p.numax, 0)} μHz`;
     $('#r-dnu').textContent = `${fmt(p.dnu, 2)} μHz`;
     $('#r-eps').textContent = fmt(p.eps, 2);
-    hrP.c.setAttribute('aria-label', `H–R diagram with the selected model at ${Math.round(10 ** p.teff)} K and ${fmt(10 ** p.L, 2)} solar luminosities`);
+    hrP.c.setAttribute('aria-label', `H–R diagram with the selected model, radius ${radiusOf(cur).toFixed(2)} solar radii, at ${Math.round(10 ** p.teff)} K and ${fmt(10 ** p.L, 2)} solar luminosities`);
     ecP.c.setAttribute('aria-label', `Échelle diagram: Δν = ${fmt(p.dnu, 2)} μHz, ν_max = ${fmt(p.numax, 0)} μHz`);
+    const sm = sim(cur), w = lcWindow(sm);
+    $('#lc-sub').textContent = `First ${LC_DAYS} days of the ${Math.round(sm.N * sm.dt / 86400)}-day simulation, 1-minute cadence`;
+    $('#ps-sub').textContent = `${sm.N.toLocaleString('en')} points every ${fmtCadence(sm.dt)}, ${fmtSpan(sm.N * sm.dt)} in total`;
+    lcP.c.setAttribute('aria-label', `Simulated light curve over ${fmtSpan(w.n * sm.dt)}, rms about ${Math.round(sm.rmsExpected)} ppm`);
+    psP.c.setAttribute('aria-label', `Simulated power spectrum with the oscillation hump at ${fmt(p.numax, 0)} μHz`);
     drawAll();
     if ($('#osc-table').open) fillTable();
     scheduleHash();
   }
-  function drawAll() { drawHR(); drawTP(); drawProp(); drawEchelle(); }
+  function drawAll() { drawHR(); drawLC(); drawPS(); drawTP(); drawProp(); drawEchelle(); }
 
   let hashTimer = 0;
   function scheduleHash() {
@@ -473,8 +615,23 @@
     S = D.meta.scales; N = D.profiles.model.length;
     track = { teff: decDelta(D.track.teff, S.teff), L: decDelta(D.track.L, S.log) };
     readTheme();
+    const bar = $('#teff-bar');
+    if (bar) bar.style.background = `linear-gradient(to right, ${[4300, 4700, 5100, 5500, 5900].map(teffColor).join(', ')})`;
     hrP = new Panel($('#c-hr')); tpP = new Panel($('#c-tp')); prP = new Panel($('#c-prop')); ecP = new Panel($('#c-ech'));
     ecP.m.l = 58; prP.m.l = 50;
+    lcP = new Panel($('#c-lc')); psP = new Panel($('#c-ps')); psP.m.l = 50; lcP.m.l = 56;
+    wireHover(lcP, x => {
+      const s = sim(cur), w = lcWindow(s), t = lcP.ix(x);
+      const k = Math.round(t * w.unit[1] / s.dt);
+      if (k < 0 || k >= w.n) return null;
+      return { key: t, rows: [[`${s.flux[k].toFixed(1)} ppm`, 'flux'], [`${t.toFixed(2)} ${w.unit[0]}`, 'time']] };
+    }, drawLC);
+    wireHover(psP, x => {
+      const s = sim(cur), lf = psP.ix(x), f = 10 ** lf, k = Math.round(f / s.df);
+      if (k < 1 || k >= s.power.length) return null;
+      return { key: lf, rows: [[`${fmtFreq(f)} μHz`, 'frequency'], [`${s.power[k].toPrecision(3)} ppm²/μHz`, 'simulated'],
+                               [`${s.limitSmooth[k].toPrecision(3)} ppm²/μHz`, 'expected, smoothed over Δν']] };
+    }, drawPS);
 
     const slider = $('#osc-slider');
     slider.max = N - 1;
