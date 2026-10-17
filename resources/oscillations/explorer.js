@@ -605,7 +605,7 @@
   async function init() {
     const status = $('#osc-status');
     try {
-      const res = await fetch('data.json');
+      const res = await fetch('data.json?v=20261017');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       D = await res.json();
     } catch (err) {
