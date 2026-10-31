@@ -1,14 +1,14 @@
 /* ---------- Design tokens ---------- */
 :root {
-  /* warm paper, ink text, deep blue accent */
-  --bg: #faf8f4;
-  --fg: #1d1c1a;
-  --muted: #6b6761;
-  --accent: #1f5f8b;
-  --accent-hover: #15445f;
-  --card: #ffffff;
-  --border: #e6e1d8;
-  --rule: #d9d3c8;
+  /* plain white, cool greys, amber accent (from the star-colour scale) */
+  --bg: #ffffff;
+  --fg: #16181d;
+  --muted: #5f6670;
+  --accent: #b45309;
+  --accent-hover: #8a3f06;
+  --card: #f5f6f8;
+  --border: #e3e6ea;
+  --rule: #d5d9df;
 
   --max: 760px;
   --radius: 12px;
@@ -20,15 +20,15 @@
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    /* deep navy night */
-    --bg: #0f1520;
-    --fg: #e6e4df;
-    --muted: #9aa0a8;
-    --accent: #8fbbe8;
-    --accent-hover: #b7d3f2;
-    --card: #161e2c;
-    --border: #273146;
-    --rule: #2f3a52;
+    /* neutral charcoal, amber accent */
+    --bg: #0e0f11;
+    --fg: #e7e8ea;
+    --muted: #9a9fa6;
+    --accent: #f0a35e;
+    --accent-hover: #f6c08f;
+    --card: #17191c;
+    --border: #26292e;
+    --rule: #31353b;
   }
 }
 

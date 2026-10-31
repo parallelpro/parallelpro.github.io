@@ -1,0 +1,26 @@
+/* Alternative colour theme: "cool mist" (a faint blue-grey page with white cards, blue accent).
+   Not used by default. To switch to it, add this line after the main stylesheet in a page's <head>:
+       <link rel="stylesheet" href="/css/theme-cool-mist.css">
+   or copy these values over the tokens at the top of style.css. */
+:root {
+  --bg: #f2f5f8;
+  --fg: #15202b;
+  --muted: #5a6672;
+  --accent: #1f5f8b;
+  --accent-hover: #15445f;
+  --card: #ffffff;
+  --border: #dfe5eb;
+  --rule: #cfd7df;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111417;
+    --fg: #e5e8eb;
+    --muted: #98a1aa;
+    --accent: #8fbbe8;
+    --accent-hover: #b7d3f2;
+    --card: #1a1e23;
+    --border: #282e35;
+    --rule: #333a42;
+  }
+}

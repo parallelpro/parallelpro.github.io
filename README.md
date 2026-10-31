@@ -9,6 +9,7 @@ Source for https://www.yaguangli.page/ — a plain HTML + CSS site, no build ste
 | `index.html` | The main page: About, Research, Talks and Code sections |
 | `resources/index.html` | Resources (separate page) |
 | `css/style.css` | All styling (colours live in the `:root` block at the top) |
+| `css/theme-cool-mist.css` | Alternative colour theme (cool mist), not used by default; instructions inside |
 | `img/` | Portrait, research card images, the Resources banner, `og-image.jpg` (social preview) |
 | `files/` | CV and slide PDFs hosted on the site |
 | `resources/oscillations/` | Interactive oscillation explorer: page, `explorer.js`, and generated `data.json` |
