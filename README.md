@@ -14,6 +14,7 @@ Source for https://www.yaguangli.page/ — a plain HTML + CSS site, no build ste
 | `files/` | CV and slide PDFs hosted on the site |
 | `resources/oscillations/` | Interactive oscillation explorer: page, `explorer.js`, and generated `data.json` |
 | `resources/echelle/` | Stretched échelle tool: page, `echelle.js` (interface), `echelle-core.js` (fold and stretching, a port of clickelle), `examples/` |
+| `resources/coupling/` | Mode coupling page: `coupling.js` (Newton solver for mixed modes, and the interface) |
 | `favicon.svg`, `favicon.png`, `apple-touch-icon.png` | Site icon |
 | `fonts/` | A three-glyph subset of AR PL KaitiM GB (the LaTeX CJK `gkai` font) used for 李亚光 in the heading, with its Arphic Public License |
 | `astronomy-*/` | Redirects from the old Google Sites URLs to the matching section |

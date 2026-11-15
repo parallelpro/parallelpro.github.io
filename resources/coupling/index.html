@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mode coupling · Yaguang Li @astro</title>
+  <meta name="description" content="Interactive mode coupling: pure p and g dipole modes evolving with the large separation and period spacing, coupled into mixed modes, shown against time and in frequency and period échelle diagrams.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600&family=Source+Sans+3:wght@400;600&display=swap">
+  <link rel="stylesheet" href="../../css/style.css">
+  <link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="../../favicon.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="../../apple-touch-icon.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Yaguang Li @astro">
+  <meta property="og:title" content="Mode coupling · Yaguang Li @astro">
+  <meta property="og:description" content="Pure p and g dipole modes coupled into mixed modes, as the large separation and period spacing evolve.">
+  <meta property="og:url" content="https://www.yaguangli.page/resources/coupling/">
+  <meta property="og:image" content="https://www.yaguangli.page/img/og-image.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <style>
+    /* p modes: categorical slot 2 (orange); g modes: slot 1 (blue); mixed modes: ink */
+    .cpl { --cp: #eb6834; --cg: #2a78d6; }
+    @media (prefers-color-scheme: dark) { .cpl { --cp: #d95926; --cg: #3987e5; } }
+    .wrap-wide { max-width: 1240px; }
+    .cpl-head { max-width: 760px; padding-top: 2.4rem; }
+    .cpl-head h1 { margin: 0 0 0.6rem; font-size: clamp(1.8rem, 4vw, 2.3rem); }
+    .cpl-head p { margin: 0 0 0.7rem; }
+    .cpl-hint { color: var(--muted); font-size: 0.95rem; }
+
+    .cpl-time { display: flex; align-items: center; gap: 10px; margin-top: 1rem; }
+    .cpl-time input[type=range] { flex: 1 1 auto; accent-color: var(--accent); }
+    .cpl-btn {
+      font: inherit; font-size: 0.9rem; font-weight: 600; color: var(--accent); background: var(--card);
+      border: 1px solid var(--border); border-radius: 999px; padding: 3px 14px; cursor: pointer; min-width: 4.6rem;
+    }
+    .cpl-btn:hover { border-color: var(--accent); }
+    .cpl-btn:focus-visible, .cpl input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .cpl-readout { display: flex; flex-wrap: wrap; gap: 2px 18px; margin: 6px 0 0; padding: 0; font-size: 0.92rem; color: var(--muted); }
+    .cpl-readout div { display: flex; gap: 6px; }
+    .cpl-readout dt { margin: 0; }
+    .cpl-readout dd { margin: 0; color: var(--fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+    .cpl-legend { display: flex; flex-wrap: wrap; gap: 2px 18px; margin: 0.9rem 0 0; padding: 0; list-style: none; font-size: 0.88rem; color: var(--muted); }
+    .cpl-legend li { margin: 0; display: flex; align-items: center; gap: 6px; }
+
+    .cpl-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 10px; }
+    @media (max-width: 1000px) { .cpl-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 820px) { .cpl-grid { grid-template-columns: 1fr; } }
+    .cpl-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px 8px; min-width: 0; display: flex; flex-direction: column; }
+    .cpl-panel h2 { margin: 0 0 2px; font-size: 1.08rem; }
+    .cpl-panel .sub { margin: 0 0 4px; font-size: 0.84rem; color: var(--muted); }
+    .cpl-panel canvas { display: block; width: 100%; height: clamp(280px, calc(100vh - 430px), 460px); touch-action: pan-y; margin-top: auto; }
+    #c-ev { cursor: crosshair; }
+
+    .cpl-params { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
+    @media (max-width: 900px) { .cpl-params { grid-template-columns: 1fr; } }
+    .cpl-group { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px 6px; }
+    .cpl-group h3 { margin: 0 0 4px; font-family: var(--sans); font-size: 0.84rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .prm { display: grid; grid-template-columns: 5rem 1fr 5.4rem; align-items: center; gap: 8px; margin: 4px 0; }
+    .prm label { font-size: 0.95rem; white-space: nowrap; }
+    .prm label .unit { color: var(--muted); font-size: 0.8rem; }
+    .prm input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; }
+    .prm input[type=number] {
+      width: 100%; font: inherit; font-size: 0.9rem; font-variant-numeric: tabular-nums; color: var(--fg);
+      background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px;
+    }
+
+    #cpl-tip {
+      position: fixed; z-index: 20; pointer-events: none; background: var(--card); border: 1px solid var(--border);
+      border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.12); padding: 6px 10px; font-size: 0.86rem; line-height: 1.45; font-variant-numeric: tabular-nums;
+    }
+    #cpl-tip strong { color: var(--fg); }
+    #cpl-tip span { color: var(--muted); }
+
+    .cpl-notes { max-width: 760px; margin-top: 2rem; }
+    .cpl-notes h2 { font-size: 1.35rem; margin: 0 0 0.6rem; }
+    .cpl-notes dt { font-weight: 600; margin-top: 0.8rem; }
+    .cpl-notes dd { margin: 0.15rem 0 0; }
+    .eq { font-family: var(--serif); font-size: 1.02rem; margin: 0.4rem 0 0.4rem 1rem; }
+  </style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="../../">Yaguang Li</a>
+    <nav class="nav">
+      <a href="../../">Home</a>
+      <a href="../../#research">Research</a>
+      <a href="../../#talks">Talks</a>
+      <a href="../../#code">Code</a>
+      <a href="../" aria-current="page">Resources</a>
+      <a href="../../files/Yaguang_Li_CV.pdf">CV</a>
+    </nav>
+  </div>
+</header>
+
+<main class="cpl">
+  <div class="wrap cpl-head">
+    <h1>Mode coupling</h1>
+    <p>Dipole modes in subgiants and red giants are mixtures of an acoustic (p) mode in the envelope and a buoyancy (g)
+      mode in the core. Set how the large separation Δν and the period spacing ΔΠ<sub>1</sub> change with time, and watch
+      the pure p and g modes cross while the coupled mixed modes bend away from each other in avoided crossings.</p>
+    <p class="cpl-hint">Drag the time slider or press Play, or click the left panel to pick a time. Hover the échelle
+      diagrams for mode details.</p>
+  </div>
+
+  <div class="wrap wrap-wide">
+    <div class="cpl-time">
+      <button type="button" class="cpl-btn" id="t-play">Play</button>
+      <input type="range" id="t-slider" min="0" max="1" step="0.001" value="0.5" aria-label="Time">
+    </div>
+    <dl class="cpl-readout" aria-live="polite">
+      <div><dt>t</dt><dd id="r-t">–</dd></div>
+      <div><dt>Δν(t)</dt><dd id="r-dnu">–</dd></div>
+      <div><dt>ΔΠ<sub>1</sub>(t)</dt><dd id="r-dpi">–</dd></div>
+      <div><dt>Modes in range</dt><dd id="r-n">–</dd></div>
+      <div><dt>g modes per Δν, 𝒩</dt><dd id="r-N">–</dd></div>
+    </dl>
+
+    <ul class="cpl-legend">
+      <li><svg width="22" height="10" aria-hidden="true"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--cp)" stroke-width="1.6" stroke-dasharray="5 4"/></svg><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="none" stroke="var(--cp)" stroke-width="1.6"/></svg><span>Pure p modes, ν<sub>p</sub></span></li>
+      <li><svg width="22" height="10" aria-hidden="true"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--cg)" stroke-width="1.6" stroke-dasharray="5 4"/></svg><svg width="14" height="14" aria-hidden="true"><rect x="2.5" y="2.5" width="9" height="9" fill="none" stroke="var(--cg)" stroke-width="1.6"/></svg><span>Pure g modes, ν<sub>g</sub></span></li>
+      <li><svg width="22" height="10" aria-hidden="true"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--fg)" stroke-width="1.6"/></svg><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="var(--fg)"/></svg><span>Mixed modes, ν<sub>m</sub> (size: p character, 1 − ζ)</span></li>
+    </ul>
+
+    <div class="cpl-grid">
+      <section class="cpl-panel">
+        <h2>Frequencies through time</h2>
+        <p class="sub">Dashed: pure p and g modes. Solid: mixed modes.</p>
+        <canvas id="c-ev" role="img" aria-label="Pure and mixed mode frequencies against time"></canvas>
+      </section>
+      <section class="cpl-panel">
+        <h2>Frequency échelle</h2>
+        <p class="sub">ν mod Δν at the selected time.</p>
+        <canvas id="c-fe" role="img" aria-label="Frequency échelle diagram at the selected time"></canvas>
+      </section>
+      <section class="cpl-panel">
+        <h2>Period échelle</h2>
+        <p class="sub">P mod ΔΠ<sub>1</sub> at the selected time.</p>
+        <canvas id="c-pe" role="img" aria-label="Period échelle diagram at the selected time"></canvas>
+      </section>
+    </div>
+
+    <div class="cpl-params">
+      <div class="cpl-group" data-group="p"><h3>Pressure modes (ℓ = 1)</h3></div>
+      <div class="cpl-group" data-group="g"><h3>Gravity modes (ℓ = 1)</h3></div>
+      <div class="cpl-group" data-group="c"><h3>Coupling and frequency range</h3></div>
+    </div>
+
+    <section class="cpl-notes">
+      <h2>How it works</h2>
+      <dl>
+        <dt>Pure modes</dt>
+        <dd>Pure p modes are evenly spaced in frequency and pure g modes evenly spaced in period:
+          <div class="eq">ν<sub>p</sub> = (n + ε<sub>p</sub>) Δν, &nbsp;&nbsp; 1/ν<sub>g</sub> = (m + ε<sub>g</sub>) ΔΠ<sub>1</sub></div>
+          Δν and ΔΠ<sub>1</sub> change with time t between the values you set at t = 0 and t = 1, geometrically:
+          Δν(t) = Δν(0) [Δν(1)/Δν(0)]<sup>t</sup>, and likewise for ΔΠ<sub>1</sub>. A shrinking Δν lowers the p modes,
+          while a shrinking ΔΠ<sub>1</sub>, as the core contracts, raises the g modes, so the two families cross.</dd>
+        <dt>Coupling</dt>
+        <dd>Mixed modes satisfy the asymptotic relation
+          <div class="eq">tan[π(ν/Δν − ε<sub>p</sub>)] · tan[π(ε<sub>g</sub> − 1/(ν ΔΠ<sub>1</sub>))] = q</div>
+          where q is the coupling strength. The page rewrites it as a smooth phase that increases steadily with frequency,
+          so each mixed mode sits at its own whole-number value of that phase, and solves for every mode with Newton's
+          method (with a bisection safeguard). Each mixed mode keeps its number as the star evolves, which is what
+          connects it into one line through time. As q → 0 the mixed modes return to the pure p and g modes.</dd>
+        <dt>Échelle diagrams</dt>
+        <dd>In the frequency échelle the pure p modes line up at ν mod Δν = ε<sub>p</sub> Δν; in the period échelle the
+          pure g modes line up at P mod ΔΠ<sub>1</sub> = ε<sub>g</sub> ΔΠ<sub>1</sub> (dashed lines). Mixed modes bend away
+          from both. Their marker size shows the p character 1 − ζ, where ζ is the fraction of the mode's inertia in the
+          g cavity, so p-like modes are large and g-like modes are small.</dd>
+      </dl>
+    </section>
+  </div>
+</main>
+
+<div id="cpl-tip" role="tooltip" hidden></div>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>© Yaguang Li · Last updated November 2026</span>
+    <span><a href="mailto:yaguangl@hawaii.edu">yaguangl@hawaii.edu</a></span>
+  </div>
+</footer>
+
+<script src="coupling.js?v=20261114" defer></script>
+</body>
+</html>
