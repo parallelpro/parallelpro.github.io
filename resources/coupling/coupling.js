@@ -102,12 +102,12 @@
   const $ = sel => document.querySelector(sel);
 
   // A fixed, illustrative track from an early subgiant (the n_g = 1 g mode entering from below, pure p modes above it)
-  // to a red giant (about 20 g modes per p mode) inside one frequency window. Dnu falls geometrically; DPi1 is set by the number of g modes per
+  // to a red giant (about 10 g modes per p mode) inside one frequency window. Dnu falls geometrically; DPi1 is set by the number of g modes per
   // Dnu at mid-window, N = Dnu / (nu^2 DPi1), which grows from N0 to N1 with ln N following
   // f(t) = t - a sin(2 pi t) / (2 pi): slow at both ends, fast through the crossover, so each stage gets time on screen.
   // Real stars reach large N mostly because nu_max falls as they expand; here DPi1 shrinks much faster than in a real
   // star so the whole story fits in one window.
-  const TR = { dnu0: 22, dnu1: 18, N0: 0.075, N1: 20, a: 0.75, ep: 0.8, eg: 0.25, lo: 170, hi: 330 };
+  const TR = { dnu0: 22, dnu1: 18, N0: 0.075, N1: 10, a: 0.75, ep: 0.8, eg: 0.25, lo: 170, hi: 330 };
   const nuMid = Math.sqrt(TR.lo * TR.hi);
   const gPerDnu = a => a.dnu * 1e6 / (nuMid * nuMid * a.dpi);
   const dnuOf = t => TR.dnu0 * (TR.dnu1 / TR.dnu0) ** t;
