@@ -12,11 +12,13 @@
 
   // Continuous phase Psi(nu), increasing with nu; mixed modes sit exactly at integer Psi.
   // atan(q cot Theta) jumps by +pi at every Theta = j pi; subtracting pi ceil(Theta/pi) removes the jumps.
+  // The branch k and tan(Theta) come from the same reduced angle r = Theta/pi - k in (-1, 0], so they always agree;
+  // computing them separately can put them on opposite sides of a multiple of pi and shift Psi by exactly 1.
   function psi(nu, a) {
-    const tg = thetaG(nu, a);
-    let t = Math.tan(tg);
-    if (t === 0) t = 1e-300;
-    const A = Math.atan(a.q / t) - PI * Math.ceil(tg / PI);
+    const u = a.eg - 1e6 / (nu * a.dpi), k = Math.ceil(u);
+    let t = Math.tan(PI * (u - k));
+    if (t === 0) t = -1e-300;                                          // Theta exactly k pi: the limit from below
+    const A = Math.atan(a.q / t) - PI * k;
     return (thetaP(nu, a) - A) / PI;
   }
   // dPsi/dnu = 1/Dnu + G, with G = q nu_g'(nu) / (sin^2 Theta + q^2 cos^2 Theta) the g-mode part;
@@ -72,10 +74,11 @@
     return out;
   }
 
-  const at = (s, t) => ({ dnu: s.dnu0 * (s.dnu1 / s.dnu0) ** t, dpi: s.dpi0 * (s.dpi1 / s.dpi0) ** t, ep: s.ep, eg: s.eg, q: s.q });
+  // s.dnu(t) and s.dpi(t) give the large separation (uHz) and period spacing (s) at time t in [0, 1]
+  const at = (s, t) => ({ dnu: s.dnu(t), dpi: s.dpi(t), ep: s.ep, eg: s.eg, q: s.q });
 
   // Evolve over a time grid: lines keyed by mode label (n for p, m for g, K for mixed)
-  function evolve(s, nt = 241) {
+  function evolve(s, nt = 361) {
     const ts = Array.from({ length: nt }, (_, i) => i / (nt - 1));
     const P = new Map(), G = new Map(), M = new Map();
     const push = (map, key, t, nu, extra) => { if (!map.has(key)) map.set(key, []); map.get(key).push({ t, nu, ...extra }); };
@@ -93,13 +96,18 @@
   // ---------- interface ----------
   const $ = sel => document.querySelector(sel);
 
-  // A fixed, illustrative track from subgiant-like (fewer than one g mode per p mode) to red-giant-like (several g
-  // modes per p mode) inside one frequency window. Real stars get there mostly because nu_max falls as they expand;
-  // here DPi1 shrinks much faster than in a real star so the whole story fits in a fixed window.
-  const TRACK = { dnu0: 22, dnu1: 18, ep: 0.8, dpi0: 800, dpi1: 75, eg: 0.25, lo: 200, hi: 300 };
-  const S = { ...TRACK, q: 0.12, t: 0.3 };
-  const nuMid = Math.sqrt(TRACK.lo * TRACK.hi);
-  const gPerDnu = a => a.dnu * 1e6 / (nuMid * nuMid * a.dpi);         // N = Dnu / (nu^2 DPi1) at mid-window
+  // A fixed, illustrative track from an early subgiant (one g mode spread over many p modes) to a red giant (several
+  // g modes per p mode) inside one frequency window. Dnu falls geometrically; DPi1 is set by the number of g modes per
+  // Dnu at mid-window, N = Dnu / (nu^2 DPi1), which grows from N0 to N1 with ln N following
+  // f(t) = t - a sin(2 pi t) / (2 pi): slow at both ends, fast through the crossover, so each stage gets time on screen.
+  // Real stars reach large N mostly because nu_max falls as they expand; here DPi1 shrinks much faster than in a real
+  // star so the whole story fits in one window.
+  const TR = { dnu0: 22, dnu1: 18, N0: 0.15, N1: 3.5, a: 0.75, ep: 0.8, eg: 0.25, lo: 170, hi: 330 };
+  const nuMid = Math.sqrt(TR.lo * TR.hi);
+  const gPerDnu = a => a.dnu * 1e6 / (nuMid * nuMid * a.dpi);
+  const dnuOf = t => TR.dnu0 * (TR.dnu1 / TR.dnu0) ** t;
+  const NOf = t => TR.N0 * (TR.N1 / TR.N0) ** (t - TR.a * Math.sin(2 * PI * t) / (2 * PI));
+  const S = { dnu: dnuOf, dpi: t => dnuOf(t) * 1e6 / (nuMid * nuMid * NOf(t)), ep: TR.ep, eg: TR.eg, lo: TR.lo, hi: TR.hi, q: 0.15, t: 0.15 };
 
   function rich(str) {
     const f = document.createDocumentFragment(), re = /_([A-Za-z0-9]+)/g; let last = 0, m;
