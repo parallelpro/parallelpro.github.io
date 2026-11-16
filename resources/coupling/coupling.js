@@ -1,21 +1,26 @@
 /* Mode coupling: pure p and g dipole modes evolving with Dnu(t) and DPi1(t), coupled into mixed modes.
    Convention as in stretching.py: theta_p = pi (nu/Dnu - eps_p), Theta_g = pi (eps_g - 1/(nu DPi1)), with eps_p the
-   l = 1 p-mode offset. Pure p modes: nu = (n + eps_p) Dnu. Pure g modes: P = (m + eps_g) DPi1.
-   Mixed modes: tan(theta_p) tan(Theta_g) = q. */
+   l = 1 p-mode offset. Pure p modes: nu = (n + eps_p) Dnu. Pure g modes: P = (n_g + eps_g) DPi1 with n_g >= 1.
+   Mixed modes: tan(theta_p) tan(Theta_g) = q.
+   The lowest-order g mode is n_g = 1, at Theta_g = -pi; there are no g modes above its frequency. The g phase is
+   therefore frozen at Theta_g = -pi/2, halfway to the nonexistent n_g = 0, for all higher frequencies: there
+   tan(Theta_g) is infinite, so tan(theta_p) = 0 and the dipole modes are pure p modes. */
 (() => {
   'use strict';
   const PI = Math.PI;
 
   // ---------- core (pure functions; exposed for testing) ----------
   const thetaP = (nu, a) => PI * (nu / a.dnu - a.ep);
-  const thetaG = (nu, a) => PI * (a.eg - 1e6 / (nu * a.dpi));          // nu in uHz, DPi1 in s
+  const U_TOP = -0.5;                                                  // Theta_g / pi above the n_g = 1 g mode
+  const gPhase = (nu, a) => a.eg - 1e6 / (nu * a.dpi);                 // Theta_g / pi before freezing; nu in uHz, DPi1 in s
+  const thetaG = (nu, a) => PI * Math.min(gPhase(nu, a), U_TOP);
 
   // Continuous phase Psi(nu), increasing with nu; mixed modes sit exactly at integer Psi.
   // atan(q cot Theta) jumps by +pi at every Theta = j pi; subtracting pi ceil(Theta/pi) removes the jumps.
   // The branch k and tan(Theta) come from the same reduced angle r = Theta/pi - k in (-1, 0], so they always agree;
   // computing them separately can put them on opposite sides of a multiple of pi and shift Psi by exactly 1.
   function psi(nu, a) {
-    const u = a.eg - 1e6 / (nu * a.dpi), k = Math.ceil(u);
+    const u = Math.min(gPhase(nu, a), U_TOP), k = Math.ceil(u);
     let t = Math.tan(PI * (u - k));
     if (t === 0) t = -1e-300;                                          // Theta exactly k pi: the limit from below
     const A = Math.atan(a.q / t) - PI * k;
@@ -24,6 +29,7 @@
   // dPsi/dnu = 1/Dnu + G, with G = q nu_g'(nu) / (sin^2 Theta + q^2 cos^2 Theta) the g-mode part;
   // zeta = G / (dPsi/dnu) is the g fraction (same as make_zeta in stretching.py at a mixed mode).
   function dpsiParts(nu, a) {
+    if (gPhase(nu, a) >= U_TOP) return { p: 1 / a.dnu, g: 0 };       // above the n_g = 1 g mode: pure p
     const tg = thetaG(nu, a), s = Math.sin(tg), c = Math.cos(tg);
     const G = (a.q * 1e6 / (nu * nu * a.dpi)) / (s * s + a.q * a.q * c * c);
     return { p: 1 / a.dnu, g: G };
@@ -53,9 +59,8 @@
   function pureModes(a, lo, hi) {
     const p = [], g = [];
     for (let n = Math.ceil(lo / a.dnu - a.ep); n <= Math.floor(hi / a.dnu - a.ep); n++) p.push({ n, nu: (n + a.ep) * a.dnu });
-    for (let m = Math.ceil(1e6 / (hi * a.dpi) - a.eg); m <= Math.floor(1e6 / (lo * a.dpi) - a.eg); m++) {
-      const P = (m + a.eg) * a.dpi;
-      if (P > 0) g.push({ m, nu: 1e6 / P });
+    for (let m = Math.max(1, Math.ceil(1e6 / (hi * a.dpi) - a.eg)); m <= Math.floor(1e6 / (lo * a.dpi) - a.eg); m++) {
+      g.push({ m, nu: 1e6 / ((m + a.eg) * a.dpi) });
     }
     return { p, g };
   }
@@ -96,18 +101,19 @@
   // ---------- interface ----------
   const $ = sel => document.querySelector(sel);
 
-  // A fixed, illustrative track from an early subgiant (one g mode spread over many p modes) to a red giant (several
-  // g modes per p mode) inside one frequency window. Dnu falls geometrically; DPi1 is set by the number of g modes per
+  // A fixed, illustrative track from an early subgiant (the n_g = 1 g mode entering from below, pure p modes above it)
+  // to a red giant (about 20 g modes per p mode) inside one frequency window. Dnu falls geometrically; DPi1 is set by the number of g modes per
   // Dnu at mid-window, N = Dnu / (nu^2 DPi1), which grows from N0 to N1 with ln N following
   // f(t) = t - a sin(2 pi t) / (2 pi): slow at both ends, fast through the crossover, so each stage gets time on screen.
   // Real stars reach large N mostly because nu_max falls as they expand; here DPi1 shrinks much faster than in a real
   // star so the whole story fits in one window.
-  const TR = { dnu0: 22, dnu1: 18, N0: 0.15, N1: 3.5, a: 0.75, ep: 0.8, eg: 0.25, lo: 170, hi: 330 };
+  const TR = { dnu0: 22, dnu1: 18, N0: 0.075, N1: 20, a: 0.75, ep: 0.8, eg: 0.25, lo: 170, hi: 330 };
   const nuMid = Math.sqrt(TR.lo * TR.hi);
   const gPerDnu = a => a.dnu * 1e6 / (nuMid * nuMid * a.dpi);
   const dnuOf = t => TR.dnu0 * (TR.dnu1 / TR.dnu0) ** t;
   const NOf = t => TR.N0 * (TR.N1 / TR.N0) ** (t - TR.a * Math.sin(2 * PI * t) / (2 * PI));
-  const S = { dnu: dnuOf, dpi: t => dnuOf(t) * 1e6 / (nuMid * nuMid * NOf(t)), ep: TR.ep, eg: TR.eg, lo: TR.lo, hi: TR.hi, q: 0.15, t: 0.15 };
+  const S = { dnu: dnuOf, dpi: t => dnuOf(t) * 1e6 / (nuMid * nuMid * NOf(t)), ep: TR.ep, eg: TR.eg, lo: TR.lo, hi: TR.hi, q: 0.15, t: 0.12 };
+  const nuG1 = a => 1e6 / ((1 + a.eg) * a.dpi);                        // the n_g = 1 g mode, the highest g mode
 
   function rich(str) {
     const f = document.createDocumentFragment(), re = /_([A-Za-z0-9]+)/g; let last = 0, m;
@@ -134,7 +140,7 @@
   }
 
   class Panel {
-    constructor(c, m) { this.c = c; this.g = c.getContext('2d'); this.m = m || { l: 56, r: 12, t: 10, b: 40 }; this.marks = []; this.hover = null; }
+    constructor(c, m) { this.c = c; this.g = c.getContext('2d'); this.m = m || { l: 56, r: 12, t: 8, b: 36 }; this.marks = []; this.hover = null; }
     resize() {
       const dpr = window.devicePixelRatio || 1; this.w = this.c.clientWidth; this.h = this.c.clientHeight;
       if (this.c.width !== Math.round(this.w * dpr) || this.c.height !== Math.round(this.h * dpr)) {
@@ -199,12 +205,24 @@
   const mixedRadius = zeta => 2.5 + 4 * Math.sqrt(Math.max(0, 1 - zeta));
 
   let EV = null, panels = {};
-  const recompute = () => { EV = CouplingCore.evolve(S); };
+  // The lines through time change only with q, size or theme: draw them once into a cache and, on every frame
+  // (Play, dragging), copy the cache and add the time marker.
+  const evCache = document.createElement('canvas'); let evValid = false;
+  const recompute = (nt = 361) => { EV = CouplingCore.evolve(S, nt); evValid = false; };
 
   const ZBINS = 16;
   function drawEvolution() {
-    const P = panels.ev; P.resize(); P.marks = [];
-    P.scales(0, 1, S.lo, S.hi);
+    const P = panels.ev; P.resize(); P.scales(0, 1, S.lo, S.hi);
+    if (evValid && evCache.width === P.c.width && evCache.height === P.c.height) {
+      P.g.save(); P.g.setTransform(1, 0, 0, 1, 0, 0); P.g.drawImage(evCache, 0, 0); P.g.restore();
+    } else {
+      drawEvolutionLines(P);
+      evCache.width = P.c.width; evCache.height = P.c.height; evCache.getContext('2d').drawImage(P.c, 0, 0); evValid = true;
+    }
+    P.vline(S.t, T.fg, false);
+    if (P.hover) { const g = P.g; g.save(); g.globalAlpha = 0.4; g.strokeStyle = T.fg; g.beginPath(); g.moveTo(P.m.l, P.hover.Y + 0.5); g.lineTo(P.w - P.m.r, P.hover.Y + 0.5); g.stroke(); g.restore(); }
+  }
+  function drawEvolutionLines(P) {
     P.axes(ticks(0, 1, 5), ticks(S.lo, S.hi, 5), 'Time t', 'Frequency [μHz]');
     P.clip(g => {
       const joined = (q0, q1) => q1.t - q0.t < 1.5 * EV.dt;            // a gap means the line left the window
@@ -233,9 +251,19 @@
         for (let j = 0; j < segs.length; j += 2) { g.moveTo(P.px(segs[j].t), P.py(segs[j].nu)); g.lineTo(P.px(segs[j + 1].t), P.py(segs[j + 1].nu)); }
         g.stroke();
       }
+      // label the n_g = 1 g mode, the highest-frequency g mode, where it is two thirds of the way up the window
+      const g1 = EV.G.get(1);
+      if (g1) {
+        const target = S.lo + 0.67 * (S.hi - S.lo), q = g1.find(x => x.nu >= target) || g1[g1.length - 1];
+        const X = P.px(q.t) + 7, Y = P.py(q.nu);
+        g.save(); g.font = `600 12.5px ${T.font}`; g.textBaseline = 'middle'; g.lineJoin = 'round';
+        g.lineWidth = 4; g.strokeStyle = T.card; g.strokeText('n', X, Y); g.fillStyle = T.g; g.fillText('n', X, Y);
+        const w = g.measureText('n').width; g.font = `600 9.5px ${T.font}`;
+        const rest = 'g', w2 = g.measureText(rest).width; g.strokeText(rest, X + w, Y + 4); g.fillText(rest, X + w, Y + 4);
+        g.font = `600 12.5px ${T.font}`; g.strokeText(' = 1', X + w + w2, Y); g.fillText(' = 1', X + w + w2, Y);
+        g.restore();
+      }
     });
-    P.vline(S.t, T.fg, false);
-    if (P.hover) { const g = P.g; g.save(); g.globalAlpha = 0.4; g.strokeStyle = T.fg; g.beginPath(); g.moveTo(P.m.l, P.hover.Y + 0.5); g.lineTo(P.w - P.m.r, P.hover.Y + 0.5); g.stroke(); g.restore(); }
   }
 
   function snapshot() {
@@ -259,13 +287,17 @@
 
   let raf = 0;
   const schedule = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); }); };
+  // q changed: recompute once on the next frame, on a coarse time grid while the slider moves, then in full
+  let stale = 0, refine = 0;
   function draw() {
+    if (stale) { recompute(stale); stale = 0; }
     const sn = snapshot(), a = sn.a, N = gPerDnu(a);
     drawEvolution(); drawEchelle('fe', sn); drawEchelle('pe', sn);
     $('#r-t').textContent = S.t.toFixed(2);
     $('#r-dnu').textContent = `${a.dnu.toFixed(1)} μHz`;
     $('#r-dpi').textContent = `${a.dpi.toFixed(0)} s`;
-    $('#r-N').textContent = `${N.toFixed(1)}, ${N < 0.8 ? 'subgiant-like' : N > 1.25 ? 'red-giant-like' : 'in between'}`;
+    $('#r-N').textContent = `${N < 1 ? N.toFixed(2) : N.toFixed(1)}, ${N < 0.8 ? 'subgiant-like' : N > 1.25 ? 'red-giant-like' : 'in between'}`;
+    const g1 = nuG1(a); $('#r-g1').textContent = g1 <= S.hi ? `${g1.toFixed(0)} μHz` : 'above the window';
   }
 
   function setT(t) { S.t = Math.min(1, Math.max(0, t)); $('#t-slider').value = S.t; schedule(); }
@@ -335,9 +367,12 @@
     $('#t-play').addEventListener('click', () => setPlaying(!playTimer));
     const qs = $('#q-slider'), qv = $('#q-value');
     qs.value = S.q; qv.textContent = S.q.toFixed(2);
-    qs.addEventListener('input', () => { S.q = +qs.value; qv.textContent = S.q.toFixed(2); recompute(); schedule(); });
+    qs.addEventListener('input', () => {
+      S.q = +qs.value; qv.textContent = S.q.toFixed(2); stale = 121; schedule();
+      clearTimeout(refine); refine = setTimeout(() => { stale = 361; schedule(); }, 150);
+    });
     new ResizeObserver(() => schedule()).observe($('.cpl-grid'));
-    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readTheme(); schedule(); });
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readTheme(); evValid = false; schedule(); });
     recompute(); draw();
   }
   init();

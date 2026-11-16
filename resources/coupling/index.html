@@ -31,7 +31,7 @@
     .cpl-head p { margin: 0 0 0.7rem; }
     .cpl-hint { color: var(--muted); font-size: 0.95rem; }
 
-    .cpl-ctrl { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 26px; margin-top: 1rem; }
+    .cpl-ctrl { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 26px; margin-top: 0.8rem; }
     .cpl-ctrl label { display: flex; align-items: center; gap: 10px; font-size: 0.95rem; white-space: nowrap; }
     .cpl-ctrl input[type=range] { accent-color: var(--accent); margin: 0; }
     .cpl-tgroup { flex: 1 1 420px; display: flex; align-items: center; gap: 10px; }
@@ -45,23 +45,25 @@
     }
     .cpl-btn:hover { border-color: var(--accent); }
     .cpl-btn:focus-visible, .cpl input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-    .cpl-readout { display: flex; flex-wrap: wrap; gap: 2px 18px; margin: 6px 0 0; padding: 0; font-size: 0.92rem; color: var(--muted); }
+    .cpl-info { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 2px 24px; margin-top: 6px; }
+    .cpl-readout { display: flex; flex-wrap: wrap; gap: 2px 16px; margin: 0; padding: 0; font-size: 0.9rem; color: var(--muted); }
     .cpl-readout div { display: flex; gap: 6px; }
     .cpl-readout dt { margin: 0; }
     .cpl-readout dd { margin: 0; color: var(--fg); font-weight: 600; font-variant-numeric: tabular-nums; }
 
-    .cpl-legend { display: flex; flex-wrap: wrap; gap: 2px 18px; margin: 0.9rem 0 0; padding: 0; list-style: none; font-size: 0.88rem; color: var(--muted); }
+    .cpl-legend { display: flex; flex-wrap: wrap; gap: 2px 16px; margin: 0; padding: 0; list-style: none; font-size: 0.86rem; color: var(--muted); }
     .cpl-legend li { margin: 0; display: flex; align-items: center; gap: 6px; }
 
-    /* row 1: frequencies through time across the full width; row 2: the two échelles */
-    .cpl-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 10px; }
+    /* row 1: frequencies through time across the full width; row 2: the two échelles. Canvas heights share what is
+       left of the window after the header, controls and panel titles (about 230 px), so everything fits on one screen. */
+    .cpl-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 8px; }
     .cpl-grid > :first-child { grid-column: 1 / -1; }
     @media (max-width: 720px) { .cpl-grid { grid-template-columns: 1fr; } }
-    .cpl-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px 8px; min-width: 0; display: flex; flex-direction: column; }
-    .cpl-panel h2 { margin: 0 0 2px; font-size: 1.08rem; }
-    .cpl-panel .sub { margin: 0 0 4px; font-size: 0.84rem; color: var(--muted); }
-    .cpl-panel canvas { display: block; width: 100%; height: clamp(300px, 52vh, 480px); touch-action: pan-y; margin-top: auto; }
-    #c-ev { cursor: crosshair; height: clamp(280px, 46vh, 440px); }
+    .cpl-panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 10px 2px; min-width: 0; display: flex; flex-direction: column; }
+    .cpl-panel h2 { margin: 0; font-size: 1rem; line-height: 1.5; }
+    .cpl-panel h2 .sub { margin-left: 0.5em; font-family: var(--sans); font-size: 0.82rem; font-weight: 400; color: var(--muted); }
+    .cpl-panel canvas { display: block; width: 100%; height: clamp(230px, calc((100vh - 230px) * 0.56), 520px); touch-action: pan-y; margin-top: auto; }
+    #c-ev { cursor: crosshair; height: clamp(200px, calc((100vh - 230px) * 0.44), 420px); }
 
     #cpl-tip {
       position: fixed; z-index: 20; pointer-events: none; background: var(--card); border: 1px solid var(--border);
@@ -111,33 +113,32 @@
       <label class="cpl-q" for="q-slider">Coupling strength q
         <input type="range" id="q-slider" min="0.01" max="0.6" step="0.01" value="0.15"><output id="q-value" for="q-slider">0.15</output></label>
     </div>
+    <div class="cpl-info">
     <dl class="cpl-readout">
       <div><dt>t</dt><dd id="r-t">–</dd></div>
       <div><dt>Δν</dt><dd id="r-dnu">–</dd></div>
       <div><dt>ΔΠ<sub>1</sub></dt><dd id="r-dpi">–</dd></div>
-      <div><dt>g modes per Δν, 𝒩</dt><dd id="r-N">–</dd></div>
+      <div><dt>𝒩</dt><dd id="r-N">–</dd></div>
+      <div><dt>n<sub>g</sub> = 1 g mode</dt><dd id="r-g1">–</dd></div>
     </dl>
-
     <ul class="cpl-legend">
-      <li><svg width="22" height="10" aria-hidden="true"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--cp)" stroke-width="1.6" stroke-dasharray="5 4"/></svg><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="none" stroke="var(--cp)" stroke-width="1.6"/></svg><span>Pure p modes, ν<sub>p</sub></span></li>
-      <li><svg width="22" height="10" aria-hidden="true"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--cg)" stroke-width="1.6" stroke-dasharray="5 4"/></svg><svg width="14" height="14" aria-hidden="true"><rect x="2.5" y="2.5" width="9" height="9" fill="none" stroke="var(--cg)" stroke-width="1.6"/></svg><span>Pure g modes, ν<sub>g</sub></span></li>
-      <li><svg width="40" height="10" aria-hidden="true"><defs><linearGradient id="lg-pg"><stop offset="0" stop-color="var(--cp)"/><stop offset="1" stop-color="var(--cg)"/></linearGradient></defs><rect x="1" y="3.5" width="38" height="3" rx="1.5" fill="url(#lg-pg)"/></svg><span>Mixed modes, ν<sub>m</sub>: coloured from p-like to g-like</span></li>
+      <li><svg width="22" height="10" aria-hidden="true"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--cp)" stroke-width="1.6" stroke-dasharray="5 4"/></svg><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="none" stroke="var(--cp)" stroke-width="1.6"/></svg><span>Pure p modes</span></li>
+      <li><svg width="22" height="10" aria-hidden="true"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--cg)" stroke-width="1.6" stroke-dasharray="5 4"/></svg><svg width="14" height="14" aria-hidden="true"><rect x="2.5" y="2.5" width="9" height="9" fill="none" stroke="var(--cg)" stroke-width="1.6"/></svg><span>Pure g modes</span></li>
+      <li><svg width="40" height="10" aria-hidden="true"><defs><linearGradient id="lg-pg"><stop offset="0" stop-color="var(--cp)"/><stop offset="1" stop-color="var(--cg)"/></linearGradient></defs><rect x="1" y="3.5" width="38" height="3" rx="1.5" fill="url(#lg-pg)"/></svg><span>Mixed modes, p-like to g-like</span></li>
     </ul>
+    </div>
 
     <div class="cpl-grid">
       <section class="cpl-panel">
-        <h2>Frequencies through time</h2>
-        <p class="sub">Dashed: pure modes. Solid: mixed modes.</p>
+        <h2>Frequencies through time <span class="sub">dashed: pure modes; solid: mixed modes</span></h2>
         <canvas id="c-ev" role="img" aria-label="Pure and mixed mode frequencies against time"></canvas>
       </section>
       <section class="cpl-panel">
-        <h2>Frequency échelle</h2>
-        <p class="sub">ν mod Δν at the selected time.</p>
+        <h2>Frequency échelle <span class="sub">at the selected time</span></h2>
         <canvas id="c-fe" role="img" aria-label="Frequency échelle diagram at the selected time"></canvas>
       </section>
       <section class="cpl-panel">
-        <h2>Period échelle</h2>
-        <p class="sub">P mod ΔΠ<sub>1</sub> at the selected time.</p>
+        <h2>Period échelle <span class="sub">at the selected time</span></h2>
         <canvas id="c-pe" role="img" aria-label="Period échelle diagram at the selected time"></canvas>
       </section>
     </div>
@@ -147,22 +148,28 @@
       <dl>
         <dt>Pure modes</dt>
         <dd>Pure p modes are evenly spaced in frequency and pure g modes evenly spaced in period:
-          <div class="eq">ν<sub>p</sub> = (n + ε<sub>p</sub>) Δν, &nbsp;&nbsp; 1/ν<sub>g</sub> = (m + ε<sub>g</sub>) ΔΠ<sub>1</sub></div>
+          <div class="eq">ν<sub>p</sub> = (n + ε<sub>p</sub>) Δν, &nbsp;&nbsp; 1/ν<sub>g</sub> = (n<sub>g</sub> + ε<sub>g</sub>) ΔΠ<sub>1</sub>, &nbsp; n<sub>g</sub> = 1, 2, 3, …</div>
+          The g-mode order starts at n<sub>g</sub> = 1, so the n<sub>g</sub> = 1 mode is the highest-frequency g mode and
+          there are no g modes above it.
           As the star evolves, a shrinking Δν lowers the p modes, while a shrinking ΔΠ<sub>1</sub>, as the core contracts,
           raises the g modes, so the two families cross. What sets the character of the spectrum is the number of g modes
           per Δν, 𝒩 = Δν / (ν<sup>2</sup> ΔΠ<sub>1</sub>): below one, several p modes share each g mode, as in subgiants;
           well above one, many g modes crowd around each p mode, as in red giants.</dd>
         <dt>The evolution shown</dt>
-        <dd>Between t = 0 and 1, Δν falls from 22 to 18 μHz while ΔΠ<sub>1</sub> falls from about 2600 to 90 s: slowly
-          at first, quickly through the middle, and slowly again at the end. At the middle of the window, 𝒩 grows from
-          0.15, a single g mode spread over several p modes as in an early subgiant, to 3.5, as on the red-giant branch;
-          since 𝒩 ∝ ν<sup>−2</sup>, it is larger at the bottom of the window. This is illustrative: in a real star 𝒩
-          grows mostly because the oscillations move to lower frequency as the star expands. Here ΔΠ<sub>1</sub> shrinks
-          much faster instead, so the whole story fits in one frequency window.</dd>
+        <dd>Between t = 0 and 1, Δν falls from 22 to 18 μHz while ΔΠ<sub>1</sub> falls from about 5200 to 16 s: slowly
+          at first, quickly through the middle, and slowly again at the end. At t = 0 the n<sub>g</sub> = 1 g mode sits
+          just below the window, as in an early subgiant, and every mode above it is a p mode; it then rises through the
+          p modes, bumping each in turn, and more g modes follow. At the middle of the window 𝒩 grows to 20, as for a red
+          giant well up the branch; since 𝒩 ∝ ν<sup>−2</sup>, it is larger at the bottom of the window. This is
+          illustrative: in a real star 𝒩 grows mostly because the oscillations move to lower frequency as the star
+          expands, and ΔΠ<sub>1</sub> stays above about 50 s. Here ΔΠ<sub>1</sub> shrinks much further instead, so the
+          whole story fits in one frequency window.</dd>
         <dt>Coupling</dt>
         <dd>Mixed modes satisfy the asymptotic relation
           <div class="eq">tan[π(ν/Δν − ε<sub>p</sub>)] · tan[π(ε<sub>g</sub> − 1/(ν ΔΠ<sub>1</sub>))] = q</div>
-          where q is the coupling strength. Where a p mode and a g mode would cross, the two mixed modes instead repel in
+          where q is the coupling strength. Above the n<sub>g</sub> = 1 g mode the g phase is held at −π/2, halfway to
+          the nonexistent n<sub>g</sub> = 0 mode, so the second factor is infinite and the modes there are pure p modes.
+          Where a p mode and a g mode would cross, the two mixed modes instead repel in
           an avoided crossing and exchange character; the larger q, the wider the gap. As q → 0 the mixed modes return to
           the pure p and g modes. The page solves for every mixed mode with Newton's method, following each one as the
           star evolves.</dd>
