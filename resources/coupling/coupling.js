@@ -92,18 +92,15 @@
 
   // ---------- interface ----------
   const $ = sel => document.querySelector(sel);
-  const S = { dnu0: 40, dnu1: 15, ep: 0.8, dpi0: 150, dpi1: 80, eg: 0.25, q: 0.2, lo: 250, hi: 450, t: 0.5 };
-  const CONTROLS = [
-    { key: 'dnu0', label: 'Δν(0)', unit: 'μHz', group: 'p', min: 5, max: 120, step: 0.1, digits: 1 },
-    { key: 'dnu1', label: 'Δν(1)', unit: 'μHz', group: 'p', min: 5, max: 120, step: 0.1, digits: 1 },
-    { key: 'ep', label: 'ε_p', group: 'p', min: 0, max: 1, step: 0.001, digits: 3 },
-    { key: 'dpi0', label: 'ΔΠ_1(0)', unit: 's', group: 'g', min: 40, max: 400, step: 0.5, digits: 1 },
-    { key: 'dpi1', label: 'ΔΠ_1(1)', unit: 's', group: 'g', min: 40, max: 400, step: 0.5, digits: 1 },
-    { key: 'eg', label: 'ε_g', group: 'g', min: 0, max: 1, step: 0.001, digits: 3 },
-    { key: 'q', label: 'q', group: 'c', min: 0.01, max: 1, step: 0.001, digits: 3 },
-    { key: 'lo', label: 'ν_min', unit: 'μHz', group: 'c', min: 20, max: 2000, step: 1, digits: 0 },
-    { key: 'hi', label: 'ν_max', unit: 'μHz', group: 'c', min: 30, max: 3000, step: 1, digits: 0 },
-  ];
+
+  // A fixed, illustrative track from subgiant-like (fewer than one g mode per p mode) to red-giant-like (several g
+  // modes per p mode) inside one frequency window. Real stars get there mostly because nu_max falls as they expand;
+  // here DPi1 shrinks much faster than in a real star so the whole story fits in a fixed window.
+  const TRACK = { dnu0: 22, dnu1: 18, ep: 0.8, dpi0: 800, dpi1: 75, eg: 0.25, lo: 200, hi: 300 };
+  const S = { ...TRACK, q: 0.12, t: 0.3 };
+  const nuMid = Math.sqrt(TRACK.lo * TRACK.hi);
+  const gPerDnu = a => a.dnu * 1e6 / (nuMid * nuMid * a.dpi);         // N = Dnu / (nu^2 DPi1) at mid-window
+
   function rich(str) {
     const f = document.createDocumentFragment(), re = /_([A-Za-z0-9]+)/g; let last = 0, m;
     while ((m = re.exec(str))) {
@@ -115,10 +112,17 @@
   }
 
   let T = {};
+  const hexRGB = h => { h = h.replace('#', ''); if (h.length === 3) h = [...h].map(c => c + c).join(''); return [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16)); };
   function readTheme() {
     const cs = getComputedStyle($('.cpl')), v = n => cs.getPropertyValue(n).trim();
-    T = { p: v('--cp'), g: v('--cg'), m: v('--fg'), fg: v('--fg'), muted: v('--muted'), grid: v('--border'),
+    T = { p: v('--cp'), g: v('--cg'), fg: v('--fg'), muted: v('--muted'), grid: v('--border'),
           axis: v('--rule'), card: v('--card'), accent: v('--accent'), font: getComputedStyle(document.body).fontFamily };
+    T.pRGB = hexRGB(T.p); T.gRGB = hexRGB(T.g);
+  }
+  // mixed-mode colour: p colour when p-like (zeta = 0), g colour when g-like (zeta = 1)
+  function zetaColor(z) {
+    const c = T.pRGB.map((p, i) => Math.round(p + (T.gRGB[i] - p) * z));
+    return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
   }
 
   class Panel {
@@ -176,41 +180,53 @@
   const fmt = v => (Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v) >= 10 ? String(+v.toFixed(1)) : String(+v.toFixed(2)));
   const pmod = (a, b) => ((a % b) + b) % b;
 
-  // marker shapes: p modes open circles, g modes open squares, mixed modes filled discs sized by p character
-  function mark(g, kind, x, y, r) {
+  // markers: pure p modes open circles, pure g modes open squares, mixed modes filled discs coloured by character
+  // and sized by p character 1 - zeta
+  function mark(g, kind, x, y, r, zeta) {
     g.beginPath();
     if (kind === 'g') g.rect(x - r, y - r, 2 * r, 2 * r); else g.arc(x, y, r, 0, 2 * PI);
-    if (kind === 'm') { g.lineWidth = 3; g.strokeStyle = T.card; g.stroke(); g.fillStyle = T.m; g.fill(); }
-    else { g.lineWidth = 3.5; g.strokeStyle = T.card; g.stroke(); g.lineWidth = 1.6; g.strokeStyle = kind === 'p' ? T.p : T.g; g.stroke(); }
+    if (kind === 'm') { g.lineWidth = 2.5; g.strokeStyle = T.card; g.stroke(); g.fillStyle = zetaColor(zeta); g.fill(); }
+    else { g.lineWidth = 3.5; g.strokeStyle = T.card; g.stroke(); g.lineWidth = 1.5; g.strokeStyle = kind === 'p' ? T.p : T.g; g.stroke(); }
   }
-  const mixedRadius = zeta => 2 + 4.5 * Math.sqrt(Math.max(0, 1 - zeta));
+  const mixedRadius = zeta => 2.5 + 4 * Math.sqrt(Math.max(0, 1 - zeta));
 
   let EV = null, panels = {};
-  function recompute() {
-    if (S.hi <= S.lo + 1) S.hi = S.lo + 1;
-    EV = CouplingCore.evolve(S);
-  }
+  const recompute = () => { EV = CouplingCore.evolve(S); };
 
+  const ZBINS = 16;
   function drawEvolution() {
     const P = panels.ev; P.resize(); P.marks = [];
     P.scales(0, 1, S.lo, S.hi);
-    P.axes(ticks(0, 1, 5), ticks(S.lo, S.hi, 6), 'Time t', 'Frequency [μHz]');
+    P.axes(ticks(0, 1, 5), ticks(S.lo, S.hi, 5), 'Time t', 'Frequency [μHz]');
     P.clip(g => {
-      const line = (pts, color, width, dash) => {
-        g.save(); g.strokeStyle = color; g.lineWidth = width; if (dash) g.setLineDash(dash); g.lineJoin = 'round';
-        g.beginPath(); let pen = false, tPrev = null;
-        for (const q of pts) {
-          const X = P.px(q.t), Y = P.py(q.nu);
-          if (pen && tPrev != null && q.t - tPrev > 1.5 * EV.dt) pen = false;   // left and re-entered the window
-          pen ? g.lineTo(X, Y) : g.moveTo(X, Y); pen = true; tPrev = q.t;
-        }
-        g.stroke(); g.restore();
-      };
-      for (const pts of EV.P.values()) line(pts, T.p, 1.3, [5, 4]);
-      for (const pts of EV.G.values()) line(pts, T.g, 1.3, [5, 4]);
-      for (const pts of EV.M.values()) line(pts, T.m, 1.5, null);
+      const joined = (q0, q1) => q1.t - q0.t < 1.5 * EV.dt;            // a gap means the line left the window
+      g.lineJoin = 'round'; g.lineCap = 'round';
+      // pure modes: thin, faint dashes underneath
+      g.save(); g.globalAlpha = 0.55; g.lineWidth = 1; g.setLineDash([4, 4]);
+      for (const [map, color] of [[EV.P, T.p], [EV.G, T.g]]) {
+        g.strokeStyle = color; g.beginPath();
+        for (const pts of map.values()) pts.forEach((q, i) => {
+          const X = P.px(q.t), Y = P.py(q.nu); (i && joined(pts[i - 1], q)) ? g.lineTo(X, Y) : g.moveTo(X, Y);
+        });
+        g.stroke();
+      }
+      g.restore();
+      // mixed modes: solid, each segment coloured by its g fraction (batched into bins of zeta)
+      const bins = Array.from({ length: ZBINS }, () => []);
+      for (const pts of EV.M.values()) for (let i = 1; i < pts.length; i++) {
+        if (!joined(pts[i - 1], pts[i])) continue;
+        const z = 0.5 * (pts[i - 1].zeta + pts[i].zeta);
+        bins[Math.min(ZBINS - 1, Math.floor(z * ZBINS))].push(pts[i - 1], pts[i]);
+      }
+      g.lineWidth = 1.6;
+      for (let k = ZBINS - 1; k >= 0; k--) {                          // g-like first, so p-like ridges stay on top
+        const segs = bins[k]; if (!segs.length) continue;
+        g.strokeStyle = zetaColor((k + 0.5) / ZBINS); g.beginPath();
+        for (let j = 0; j < segs.length; j += 2) { g.moveTo(P.px(segs[j].t), P.py(segs[j].nu)); g.lineTo(P.px(segs[j + 1].t), P.py(segs[j + 1].nu)); }
+        g.stroke();
+      }
     });
-    P.vline(S.t, T.accent, false);
+    P.vline(S.t, T.fg, false);
     if (P.hover) { const g = P.g; g.save(); g.globalAlpha = 0.4; g.strokeStyle = T.fg; g.beginPath(); g.moveTo(P.m.l, P.hover.Y + 0.5); g.lineTo(P.w - P.m.r, P.hover.Y + 0.5); g.stroke(); g.restore(); }
   }
 
@@ -218,17 +234,17 @@
     const a = CouplingCore.at(S, S.t), pm = CouplingCore.pureModes(a, S.lo, S.hi);
     return { a, p: pm.p, g: pm.g, m: CouplingCore.mixedModes(a, S.lo, S.hi) };
   }
-  function drawEchelle(name) {
-    const P = panels[name], sn = snapshot(), a = sn.a; P.resize(); P.marks = [];
+  function drawEchelle(name, sn) {
+    const P = panels[name], a = sn.a; P.resize(); P.marks = [];
     const freq = name === 'fe', period = freq ? a.dnu : a.dpi;
     const xOf = nu => (freq ? pmod(nu, a.dnu) : pmod(1e6 / nu, a.dpi));
     P.scales(0, period, S.lo, S.hi);
-    P.axes(ticks(0, period, 4), ticks(S.lo, S.hi, 6), freq ? 'ν mod Δν [μHz]' : 'P mod ΔΠ_1 [s]', 'Frequency [μHz]');
+    P.axes(ticks(0, period, 4), ticks(S.lo, S.hi, 5), freq ? 'ν mod Δν [μHz]' : 'P mod ΔΠ_1 [s]', 'Frequency [μHz]');
     P.vline(freq ? pmod(a.ep, 1) * a.dnu : pmod(a.eg, 1) * a.dpi, freq ? T.p : T.g, true);
     P.clip(g => {
       for (const x of sn.p) { const X = P.px(xOf(x.nu)), Y = P.py(x.nu); mark(g, 'p', X, Y, 5.5); P.marks.push({ X, Y, kind: 'p', x }); }
       for (const x of sn.g) { const X = P.px(xOf(x.nu)), Y = P.py(x.nu); mark(g, 'g', X, Y, 4.5); P.marks.push({ X, Y, kind: 'g', x }); }
-      for (const x of sn.m) { const X = P.px(xOf(x.nu)), Y = P.py(x.nu); mark(g, 'm', X, Y, mixedRadius(x.zeta)); P.marks.push({ X, Y, kind: 'm', x }); }
+      for (const x of sn.m) { const X = P.px(xOf(x.nu)), Y = P.py(x.nu); mark(g, 'm', X, Y, mixedRadius(x.zeta), x.zeta); P.marks.push({ X, Y, kind: 'm', x }); }
       if (P.hover) { g.beginPath(); g.arc(P.hover.X, P.hover.Y, 9, 0, 2 * PI); g.lineWidth = 2; g.strokeStyle = T.fg; g.stroke(); }
     });
   }
@@ -236,49 +252,21 @@
   let raf = 0;
   const schedule = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; draw(); }); };
   function draw() {
-    drawEvolution(); drawEchelle('fe'); drawEchelle('pe');
-    const a = CouplingCore.at(S, S.t), sn = snapshot();
-    $('#r-t').textContent = S.t.toFixed(3);
-    $('#r-dnu').textContent = `${a.dnu.toFixed(2)} μHz`;
-    $('#r-dpi').textContent = `${a.dpi.toFixed(1)} s`;
-    $('#r-n').textContent = `${sn.p.length} p, ${sn.g.length} g, ${sn.m.length} mixed`;
-    $('#r-N').textContent = (a.dnu / (((S.lo + S.hi) / 2 * 1e-6) ** 2 * a.dpi * 1e6)).toFixed(2);
+    const sn = snapshot(), a = sn.a, N = gPerDnu(a);
+    drawEvolution(); drawEchelle('fe', sn); drawEchelle('pe', sn);
+    $('#r-t').textContent = S.t.toFixed(2);
+    $('#r-dnu').textContent = `${a.dnu.toFixed(1)} μHz`;
+    $('#r-dpi').textContent = `${a.dpi.toFixed(0)} s`;
+    $('#r-N').textContent = `${N.toFixed(1)}, ${N < 0.8 ? 'subgiant-like' : N > 1.25 ? 'red-giant-like' : 'in between'}`;
   }
 
-  // ---------- controls ----------
-  const ctl = {};
-  function buildControls() {
-    for (const c of CONTROLS) {
-      const row = document.createElement('div'); row.className = 'prm';
-      const lab = document.createElement('label'); lab.htmlFor = `s-${c.key}`; lab.append(rich(c.label));
-      if (c.unit) { const u = document.createElement('span'); u.className = 'unit'; u.textContent = ' ' + c.unit; lab.append(u); }
-      const range = document.createElement('input'); range.type = 'range'; range.id = `s-${c.key}`;
-      Object.assign(range, { min: c.min, max: c.max, step: c.step, value: S[c.key] });
-      const num = document.createElement('input'); num.type = 'number'; num.step = 'any'; num.value = S[c.key].toFixed(c.digits);
-      num.setAttribute('aria-label', `${c.label.replace('_', '')} value`);
-      row.append(lab, range, num);
-      $(`.cpl-group[data-group="${c.group}"]`).append(row);
-      ctl[c.key] = { c, range, num };
-      range.addEventListener('input', () => { S[c.key] = +range.value; num.value = (+range.value).toFixed(c.digits); changed(); });
-      num.addEventListener('change', () => {
-        const v = parseFloat(num.value); if (!Number.isFinite(v)) { num.value = S[c.key].toFixed(c.digits); return; }
-        S[c.key] = Math.min(c.max, Math.max(c.min, v)); range.value = S[c.key]; num.value = S[c.key].toFixed(c.digits); changed();
-      });
-    }
-  }
-  let recomputeTimer = 0;
-  function changed() {
-    clearTimeout(recomputeTimer);
-    recomputeTimer = setTimeout(() => { recompute(); schedule(); }, 0);
-  }
   function setT(t) { S.t = Math.min(1, Math.max(0, t)); $('#t-slider').value = S.t; schedule(); }
-
   let playTimer = 0;
   function setPlaying(on) {
     clearInterval(playTimer); playTimer = 0; $('#t-play').textContent = on ? 'Pause' : 'Play';
     if (!on) return;
     if (S.t >= 1) setT(0);
-    playTimer = setInterval(() => { if (S.t >= 1) setPlaying(false); else setT(S.t + 0.004); }, 30);
+    playTimer = setInterval(() => { if (S.t >= 1) setPlaying(false); else setT(S.t + 0.003); }, 30);
   }
 
   // ---------- hover ----------
@@ -302,15 +290,15 @@
       const r = P.c.getBoundingClientRect(), X = e.clientX - r.left, Y = e.clientY - r.top;
       let best = null, bd = 14 * 14;
       for (const k of P.marks) { const d = (k.X - X) ** 2 + (k.Y - Y) ** 2; if (d < bd) { bd = d; best = k; } }
-      P.hover = best; drawEchelle(name);
+      P.hover = best; drawEchelle(name, snapshot());
       if (!best) { hideTip(); return; }
       const x = best.x;
-      const rows = best.kind === 'p' ? [[`${x.nu.toFixed(2)} μHz`, `pure p mode, n = ${x.n}`]]
-        : best.kind === 'g' ? [[`${x.nu.toFixed(2)} μHz`, `pure g mode, m = ${x.m}`], [`${(1e6 / x.nu).toFixed(1)} s`, 'period']]
-        : [[`${x.nu.toFixed(3)} μHz`, 'mixed mode'], [x.zeta.toFixed(3), 'ζ, g fraction']];
+      const rows = best.kind === 'p' ? [[`${x.nu.toFixed(1)} μHz`, 'pure p mode']]
+        : best.kind === 'g' ? [[`${x.nu.toFixed(1)} μHz`, 'pure g mode'], [`${(1e6 / x.nu).toFixed(0)} s`, 'period']]
+        : [[`${x.nu.toFixed(1)} μHz`, 'mixed mode'], [`${Math.round(100 * (1 - x.zeta))}% p`, `${Math.round(100 * x.zeta)}% g (ζ = ${x.zeta.toFixed(2)})`]];
       showTip(e, rows);
     });
-    P.c.addEventListener('pointerleave', () => { P.hover = null; drawEchelle(name); hideTip(); });
+    P.c.addEventListener('pointerleave', () => { P.hover = null; drawEchelle(name, snapshot()); hideTip(); });
   }
   function wireEvolution() {
     const P = panels.ev;
@@ -323,20 +311,23 @@
       if (dragging) setT(tAt(e));
       if (!P.inPlot(X, Y)) { P.hover = null; hideTip(); schedule(); return; }
       P.hover = { Y: Math.round(Y) }; schedule();
-      const t = P.ix(X), a = CouplingCore.at(S, Math.min(1, Math.max(0, t)));
+      const t = Math.min(1, Math.max(0, P.ix(X)));
       const nu = S.lo + (P.h - P.m.b - Y) / (P.h - P.m.t - P.m.b) * (S.hi - S.lo);
-      showTip(e, [[`${nu.toFixed(1)} μHz`, 'frequency'], [`t = ${t.toFixed(3)}`, `Δν ${a.dnu.toFixed(2)} μHz, ΔΠ_1 ${a.dpi.toFixed(1)} s`], ['', 'click or drag to set the time']]);
+      showTip(e, [[`${nu.toFixed(1)} μHz`, `at t = ${t.toFixed(2)}`], ['', 'click or drag to set the time']]);
     });
     P.c.addEventListener('pointerleave', () => { P.hover = null; hideTip(); schedule(); });
   }
 
   function init() {
-    readTheme(); buildControls();
+    readTheme();
     panels.ev = new Panel($('#c-ev')); panels.fe = new Panel($('#c-fe')); panels.pe = new Panel($('#c-pe'));
     wireEvolution(); wireEchelle('fe'); wireEchelle('pe');
     $('#t-slider').value = S.t;
     $('#t-slider').addEventListener('input', e => { setPlaying(false); setT(+e.target.value); });
     $('#t-play').addEventListener('click', () => setPlaying(!playTimer));
+    const qs = $('#q-slider'), qv = $('#q-value');
+    qs.value = S.q; qv.textContent = S.q.toFixed(2);
+    qs.addEventListener('input', () => { S.q = +qs.value; qv.textContent = S.q.toFixed(2); recompute(); schedule(); });
     new ResizeObserver(() => schedule()).observe($('.cpl-grid'));
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readTheme(); schedule(); });
     recompute(); draw();
