@@ -22,9 +22,10 @@
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
   <style>
-    /* p modes: categorical slot 2 (orange); g modes: slot 1 (blue); mixed modes: blended between the two by character */
-    .cpl { --cp: #eb6834; --cg: #2a78d6; }
-    @media (prefers-color-scheme: dark) { .cpl { --cp: #d95926; --cg: #3987e5; } }
+    /* p modes: categorical slot 2 (orange); g modes: slot 1 (blue); mixed modes: a diverging map between the two
+       through a neutral midpoint (--cmid) that contrasts with the background */
+    .cpl { --cp: #eb6834; --cg: #2a78d6; --cmid: #2b2d33; }
+    @media (prefers-color-scheme: dark) { .cpl { --cp: #d95926; --cg: #3987e5; --cmid: #e7e8ea; } }
     .wrap-wide { max-width: 1240px; }
     .cpl-head { max-width: 760px; padding-top: 2.4rem; }
     .cpl-head h1 { margin: 0 0 0.6rem; font-size: clamp(1.8rem, 4vw, 2.3rem); }
@@ -124,7 +125,7 @@
     <ul class="cpl-legend">
       <li><svg width="22" height="10" aria-hidden="true"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--cp)" stroke-width="1.6" stroke-dasharray="5 4"/></svg><svg width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="5" fill="none" stroke="var(--cp)" stroke-width="1.6"/></svg><span>Pure p modes</span></li>
       <li><svg width="22" height="10" aria-hidden="true"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--cg)" stroke-width="1.6" stroke-dasharray="5 4"/></svg><svg width="14" height="14" aria-hidden="true"><rect x="2.5" y="2.5" width="9" height="9" fill="none" stroke="var(--cg)" stroke-width="1.6"/></svg><span>Pure g modes</span></li>
-      <li><svg width="40" height="10" aria-hidden="true"><defs><linearGradient id="lg-pg"><stop offset="0" stop-color="var(--cp)"/><stop offset="1" stop-color="var(--cg)"/></linearGradient></defs><rect x="1" y="3.5" width="38" height="3" rx="1.5" fill="url(#lg-pg)"/></svg><span>Mixed modes, p-like to g-like</span></li>
+      <li><svg width="40" height="10" aria-hidden="true"><defs><linearGradient id="lg-pg"><stop offset="0" stop-color="var(--cp)"/><stop offset="0.5" stop-color="var(--cmid)"/><stop offset="1" stop-color="var(--cg)"/></linearGradient></defs><rect x="1" y="3.5" width="38" height="3" rx="1.5" fill="url(#lg-pg)"/></svg><span>Mixed modes, p-like to g-like</span></li>
     </ul>
     </div>
 
@@ -177,8 +178,9 @@
         <dd>In the frequency échelle the pure p modes line up at ν mod Δν = ε<sub>p</sub> Δν; in the period échelle the
           pure g modes line up at P mod ΔΠ<sub>1</sub> = ε<sub>g</sub> ΔΠ<sub>1</sub> (dashed lines). Mixed modes bend away
           from both. Their colour, and in the échelles their size, shows how p-like they are: ζ is the fraction of the
-          mode's inertia in the g cavity, so orange, large markers are p-like (ζ near 0) and blue, small ones are g-like
-          (ζ near 1).</dd>
+          mode's inertia in the g cavity, so orange, large markers are p-like (ζ near 0), blue, small ones are g-like
+          (ζ near 1), and modes that are half p and half g (ζ = 0.5) are drawn in the neutral middle of the colour scale,
+          dark on a light background and light on a dark one.</dd>
       </dl>
     </section>
   </div>
